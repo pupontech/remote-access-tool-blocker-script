@@ -114,12 +114,17 @@ function Set-Language {
  for($attempt=0;$attempt -lt 5;$attempt++){
   if($target -eq [IntPtr]::Zero){ break }
   [void][BilingualProbe]::SendMessage($target,0x0111,$wparam,$combo)
+  # Also deliver the reflected notification straight to the combo, which is the
+  # message WinForms' parent reflection produces for a CBN_SELCHANGE.
+  [void][BilingualProbe]::SendMessage($combo,0x2111,$wparam,$combo)
   try{ return (Wait-Dialog $Process $Stage $ExpectedTitle 4) }catch{ }
   $target=[BilingualProbe]::GetParent($target)
   $fresh=[BilingualProbe]::FindDialog($Process.Id,"($Stage/3)")
   if($fresh -ne [IntPtr]::Zero){ $target=$fresh }
  }
- throw "Language switch was not observed: expected '$ExpectedTitle'"
+ $stale=[BilingualProbe]::FindDialog($Process.Id,"($Stage/3)")
+ $actual=if($stale -ne [IntPtr]::Zero){[BilingualProbe]::Title($stale)}else{'<no dialog>'}
+ throw "Language switch was not observed: expected '$ExpectedTitle' actual '$actual'"
 }
 function Save-Image {
  param([IntPtr]$Window,[string]$Name)
