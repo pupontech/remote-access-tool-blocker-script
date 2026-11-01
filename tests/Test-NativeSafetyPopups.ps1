@@ -105,17 +105,19 @@ function Set-Language {
  $combo=Get-LanguageBox $Window
  $index=if($Language -eq 'he'){1}else{0}
  [void][BilingualProbe]::SendMessage($combo,0x014E,[IntPtr]$index,[IntPtr]::Zero)
- $id=[BilingualProbe]::GetDlgCtrlID($combo)
- $target=[BilingualProbe]::GetParent($combo)
+ # WinForms reflects WM_COMMAND by the child HWND in LOWORD (not the control id),
+ # so encode the combo handle there and CBN_SELCHANGE (1) in HIWORD.
+ $wparam=[IntPtr](([long]$combo) -bor (1L -shl 16))
+ $target=$Window
  # RightToLeftLayout recreates the dialog handle, so re-find it after each attempt
  # and walk up the real Win32 parent chain until the switch is observed.
  for($attempt=0;$attempt -lt 5;$attempt++){
   if($target -eq [IntPtr]::Zero){ break }
-  [void][BilingualProbe]::SendMessage($target,0x0111,[IntPtr](($id -band 0xffff) -bor 0x10000),$combo)
+  [void][BilingualProbe]::SendMessage($target,0x0111,$wparam,$combo)
   try{ return (Wait-Dialog $Process $Stage $ExpectedTitle 4) }catch{ }
+  $target=[BilingualProbe]::GetParent($target)
   $fresh=[BilingualProbe]::FindDialog($Process.Id,"($Stage/3)")
-  if($fresh -ne [IntPtr]::Zero){ $target=[BilingualProbe]::GetParent((Get-LanguageBox $fresh)) }
-  else{ $target=[BilingualProbe]::GetParent($target) }
+  if($fresh -ne [IntPtr]::Zero){ $target=$fresh }
  }
  throw "Language switch was not observed: expected '$ExpectedTitle'"
 }
