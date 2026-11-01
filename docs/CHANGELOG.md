@@ -2,6 +2,14 @@
 
 Notable project changes. Historical dates refer to the versioning dates carried in script filenames.
 
+## 0.1.1-preview.1 — Start Here and anti-scam safeguards
+
+- Add `START-HERE.bat` for interactive setup and `Allow Remote Access.bat` for the installed control.
+- Replace the ambiguous desktop toggle with **Allow Remote Access** and **Block Remote Access** shortcuts.
+- Require three exact phrases before policy removal, with repeated red scam warnings, independent callback instructions, and cancellation on any invalid/missing input.
+- Apply the same consent gate to the low-level removal engine and emergency recovery. Copy the required safety module with installed recovery files; label its launcher **Allow Remote Access**.
+- Add confirmation/routing/removal-boundary tests and a native Windows packaged-launcher cancellation check. Earlier policy-state/recovery/ACL findings remain open; this is still a testing prerelease.
+
 ## 0.1.0-preview.1 — Windows App Control only (testing prerelease)
 
 - Replace the unpublished calendar-version preview label with semantic version 0.1.0, published only as prerelease `v0.1.0-preview.1`.

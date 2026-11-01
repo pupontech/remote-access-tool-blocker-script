@@ -50,6 +50,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./tests/Test-ScriptIntegration.ps1
           ./tests/Test-WindowsOnlyRecovery.ps1
+          ./tests/Test-RemoteAccessSafety.ps1
+          ./tests/Test-AllowRemoteAccessRouting.ps1
+          ./tests/Test-RemovalConsentBoundary.ps1
+          ./tests/Test-OneClickLaunchers.ps1
       - name: Policy inventory
         run: |
           $files = @(Get-ChildItem policy/variants -Filter '*.cip' -File)
@@ -76,6 +80,10 @@ jobs:
           $version = (Get-Content -Raw VERSION).Trim()
           python tests/verify-release-source.py "dist/remote-tools-block-windows-$version.zip"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Native packaged Start Here cancellation
+        run: |
+          $version = (Get-Content -Raw VERSION).Trim()
+          ./tests/Test-PackagedOneClick.ps1 -Archive "dist/remote-access-tool-blocker-script-only-$version-preview.zip"
       - name: Upload Windows-only preview kits
         if: matrix.shell == 'pwsh'
         uses: actions/upload-artifact@v4

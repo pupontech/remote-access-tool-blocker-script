@@ -19,6 +19,7 @@ for folder, patterns in (
         if len(matches) != 1:
             raise SystemExit(f'Expected exactly one {folder}/{pattern}; found {len(matches)}')
         files[matches[0].name] = matches[0]
+files['RemoteAccessSafety.psm1'] = root / 'integration/RemoteAccessSafety.psm1'
 for name in ('VERSION', 'LICENSE', 'NOTICE', 'README.md'):
     files[name] = root / name
 for path in (root / 'policy').rglob('*'):

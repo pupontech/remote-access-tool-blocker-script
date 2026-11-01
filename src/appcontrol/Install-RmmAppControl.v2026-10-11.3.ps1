@@ -51,6 +51,20 @@ $InstallDir = Join-Path $env:SystemDrive 'RemoteAccessToolBlocker'
 $ScriptRootHere = $PSScriptRoot
 $RepoRootHere = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 
+function Request-AllowRemoteAccessConsent {
+    $modulePath = $null
+    foreach ($candidate in @(
+        (Join-Path $PSScriptRoot 'RemoteAccessSafety.psm1'),
+        (Join-Path $PSScriptRoot '../../integration/RemoteAccessSafety.psm1'),
+        (Join-Path $PSScriptRoot '../integration/RemoteAccessSafety.psm1')
+    )) {
+        if (Test-Path -LiteralPath $candidate) { $modulePath = $candidate; break }
+    }
+    if (-not $modulePath) { throw 'Safety confirmation module missing. No protection was removed. Extract the complete package again.' }
+    Import-Module -Name $modulePath -Force -ErrorAction Stop
+    return (Confirm-AllowRemoteAccess)
+}
+
 function Write-Log([string]$m) {
     Write-Host $m
     try {
@@ -104,15 +118,22 @@ function Install-RevertTool {
         New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
     }
 
+    # Install the safety module with recovery; missing consent code must fail closed.
+    $safetySource = @(
+        (Join-Path $ScriptRootHere 'RemoteAccessSafety.psm1'),
+        (Join-Path $RepoRootHere 'integration/RemoteAccessSafety.psm1')
+    ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+    if (-not $safetySource) { throw 'Safety confirmation module missing; recovery cannot be installed.' }
+    Copy-Item -LiteralPath $safetySource -Destination (Join-Path $InstallDir 'RemoteAccessSafety.psm1') -Force
     # 2. copy only the Windows App Control-only revert tool.
-    $copied = 0
+    $copied = 1
     $winOnly = @(Get-ChildItem -Path (Join-Path $revDir 'Revert-RemoteAccessBlock-WinOnly.v*.ps1') -File -ErrorAction SilentlyContinue)
     if ($winOnly.Count -eq 0) {
         Write-Log "No Windows-only revert script found - skipping the $InstallDir install."
         return
     }
     foreach ($f in @(Get-ChildItem -Path (Join-Path $revDir 'Run-Revert.bat') -File -ErrorAction SilentlyContinue)) {
-        Copy-Item -LiteralPath $f.FullName -Destination (Join-Path $InstallDir $f.Name) -Force
+        Copy-Item -LiteralPath $f.FullName -Destination (Join-Path $InstallDir 'Allow Remote Access.bat') -Force
         $copied++
     }
     foreach ($f in $winOnly) {
@@ -163,14 +184,14 @@ function Install-RevertTool {
         'It is deliberately kept here so the block can be removed later WITHOUT the original',
         'kit, the network, or the repository.',
         '',
-        '    Run-Revert.bat                 undo the block (asks first, then backs up)',
-        '    Run-Revert.bat -WhatIf        dry run - show every step, change nothing',
-        '    Run-Revert.bat -Restore       put a previously backed-up block back',
+        '    Allow Remote Access.bat       remove blocking after anti-scam confirmations',
+        '    Allow Remote Access.bat -WhatIf        dry run - show every step, change nothing',
+        '    Allow Remote Access.bat -Restore       put a previously backed-up block back',
         '',
         'Backups live in backups\<timestamp>\ and are never deleted automatically.'
     )) { $readme.Add($line) }
     $readme.Add('')
-    $readme.Add('To remove this folder, use Run-Revert.bat -RemoveFolder (it refuses unless the folder')
+    $readme.Add('To remove this folder, use Allow Remote Access.bat -RemoveFolder (it refuses unless the folder')
     $readme.Add('is named RemoteAccessToolBlocker).')
     Set-Content -LiteralPath (Join-Path $InstallDir 'README.txt') -Value $readme -Encoding UTF8
 
@@ -254,6 +275,7 @@ if ($Mode -in 'Enforce', 'Audit') {
     # make the undo tool available on this PC regardless of which kit installed the policy
     try { Install-RevertTool } catch { Write-Log "Could not install the revert tool: $($_.Exception.Message)" }
 } elseif ($Mode -eq 'Remove') {
+    if (-not (Request-AllowRemoteAccessConsent)) { Write-Log 'Cancelled. No protection was removed.'; exit 6 }
     Write-Log 'Removing policy ...'
     if (Test-Path -LiteralPath $ciTool) {
         $out = & $ciTool --remove-policy $PolicyGuid -json 2>&1 | Out-String

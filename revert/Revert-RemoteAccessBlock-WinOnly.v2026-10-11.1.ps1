@@ -19,8 +19,8 @@
     1. Lists the dated backups, newest first.
     2. Re-installs the App Control policy from the backup you pick, with its original toggles.
 
-  Nothing here needs the internet, the repo, or any other file: the script is self-contained
-  apart from the App Control policy itself, which it restores from its own backups.
+  Nothing here needs the internet, the repo, or any other file: the script uses the bundled RemoteAccessSafety.psm1 for mandatory anti-scam confirmations
+  and restores the App Control policy from its own backups.
 
 .PARAMETER WhatIf
   Show what would happen and change nothing. Recommended first run.
@@ -115,6 +115,20 @@ function Write-Log([string]$m) {
         Add-Content -Encoding UTF8 -LiteralPath $LogFile -Value ('{0}  {1}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $m)
     } catch { }
 }
+function Request-AllowRemoteAccessConsent {
+    $modulePath = $null
+    foreach ($candidate in @(
+        (Join-Path $PSScriptRoot 'RemoteAccessSafety.psm1'),
+        (Join-Path $PSScriptRoot '../../integration/RemoteAccessSafety.psm1'),
+        (Join-Path $PSScriptRoot '../integration/RemoteAccessSafety.psm1')
+    )) {
+        if (Test-Path -LiteralPath $candidate) { $modulePath = $candidate; break }
+    }
+    if (-not $modulePath) { throw 'Safety confirmation module missing. No protection was removed. Extract the complete package again.' }
+    Import-Module -Name $modulePath -Force -ErrorAction Stop
+    return (Confirm-AllowRemoteAccess)
+}
+
 function Test-Admin {
     $p = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
     return $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -142,7 +156,7 @@ function Wait-Key {
 
 # --------------------------------------------------------------------- banner
 Write-Host ''
-Write-Host ('  Remote-access tool block - ' + $(if ($Restore) { 'RESTORE' } else { 'REVERT' }) + "  (v$ScriptVersion)") -ForegroundColor Cyan
+Write-Host ('  Remote-access tool block - ' + $(if ($Restore) { 'RESTORE' } else { 'ALLOW REMOTE ACCESS' }) + "  (v$ScriptVersion)") -ForegroundColor Cyan
 Write-Host ('  ' + $Folder) -ForegroundColor DarkGray
 if ($dry) { Write-Host '  DRY RUN (-WhatIf): nothing will be changed.' -ForegroundColor Yellow }
 Write-Host ''
@@ -268,6 +282,9 @@ if ($state -eq 'denied') {
 }
 if ($os) { Say ("  PC          : {0}  {1} build {2}" -f $env:COMPUTERNAME, $os.Caption, $build) }
 Write-Host ''
+
+# Require anti-scam consent before backup or any policy mutation. -NoPause is not consent.
+if (-not $dry -and -not (Request-AllowRemoteAccessConsent)) { Say 'Cancelled. No protection was removed.' 'Yellow'; Wait-Key; exit 6 }
 
 # ---- 1. back up
 Write-Host '--- 1. Backing up current state ---' -ForegroundColor Cyan

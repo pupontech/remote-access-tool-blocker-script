@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Install', 'Enable', 'Toggle', 'Status')][string]$Action = 'Install'
+    [ValidateSet('Install', 'Enable', 'Allow', 'Toggle', 'Status')][string]$Action = 'Install'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -20,14 +20,14 @@ try {
         [System.StringComparison]::OrdinalIgnoreCase
     )
 
-    if ($Action -eq 'Toggle' -and -not $isTrustedController) {
+    if ($Action -in @('Allow', 'Toggle') -and -not $isTrustedController) {
         throw 'Toggle is available only from the protected Program Files controller installed by -Action Install.'
     }
-    if (($Action -in @('Install', 'Enable')) -and -not $isAdmin) {
+    if (-not $isAdmin -and ($Action -eq 'Install' -or ($Action -eq 'Enable' -and -not $isTrustedController))) {
         throw 'Run Install/Enable from an elevated 64-bit Windows PowerShell session. The extracted package will not self-elevate from a user-writable path.'
     }
 
-    if ($needs64Bit -or ($Action -eq 'Toggle' -and -not $isAdmin)) {
+    if ($needs64Bit -or ($isTrustedController -and $Action -in @('Allow', 'Toggle', 'Enable') -and -not $isAdmin)) {
         $systemDirectory = if ($needs64Bit) { 'Sysnative' } else { 'System32' }
         $powershell = Join-Path $env:SystemRoot "$systemDirectory\WindowsPowerShell\v1.0\powershell.exe"
         if (-not (Test-Path -LiteralPath $powershell)) { throw "Windows PowerShell was not found: $powershell" }
@@ -38,7 +38,7 @@ try {
             Wait = $true
             PassThru = $true
         }
-        if ($Action -eq 'Toggle' -and -not $isAdmin) { $startArgs.Verb = 'RunAs' }
+        if ($isTrustedController -and $Action -in @('Allow', 'Toggle', 'Enable') -and -not $isAdmin) { $startArgs.Verb = 'RunAs' }
         $child = Start-Process @startArgs
         exit $child.ExitCode
     }
@@ -46,6 +46,10 @@ try {
     switch ($Action) {
         'Install' { Install-RemoteAccessProtection }
         'Enable' { Enable-RemoteAccessProtection }
+        'Allow' {
+            Invoke-RemoteAccessProtectionAllow
+            [void](Read-Host 'Press Enter to close')
+        }
         'Toggle' {
             Invoke-RemoteAccessProtectionToggle
             [void](Read-Host 'Press Enter to close')
@@ -55,6 +59,6 @@ try {
     exit 0
 } catch {
     Write-Host ("ERROR: " + $_.Exception.Message) -ForegroundColor Red
-    if ($Action -eq 'Toggle') { [void](Read-Host 'Press Enter to close') }
+    if ($Action -in @('Allow', 'Toggle', 'Enable')) { [void](Read-Host 'Press Enter to close') }
     exit 1
 }

@@ -32,7 +32,7 @@ REVERT="$(find "$ROOT/revert" -maxdepth 1 -type f -name 'Revert-RemoteAccessBloc
 [ -n "$REVERT" ] || { echo 'ERROR: no Windows-only revert script found.' >&2; exit 1; }
 
 cp "$ROOT/integration/Invoke-RemoteAccessProtection.ps1" "$STAGE/"
-cp "$ROOT/integration/RemoteAccessProtection.psm1" "$STAGE/"
+cp "$ROOT/integration/RemoteAccessProtection.psm1" "$ROOT/integration/RemoteAccessSafety.psm1" "$ROOT/integration/Start-Here.ps1" "$ROOT/integration/START-HERE.bat" "$ROOT/integration/Allow Remote Access.bat" "$STAGE/"
 cp "$INSTALLER" "$STAGE/"
 cp "$REVERT" "$STAGE/"
 cp "$ROOT/revert/Run-Revert.bat" "$STAGE/"

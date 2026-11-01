@@ -113,7 +113,7 @@ function New-Btn([string]$text, [int]$x, [int]$w, [string]$color) {
     $form.Controls.Add($b); return $b
 }
 $btnDo = New-Btn 'BLOCK (do)' 16 230 'PaleGreen'
-$btnUndo = New-Btn 'UNDO' 256 170 'MistyRose'
+$btnUndo = New-Btn "Allow Remote`r`nAccess" 256 170 'MistyRose'
 $btnTest = New-Btn 'Test mode' 436 172 'LightYellow'
 $btnTest.Font = New-Object Drawing.Font('Segoe UI', 10)
 
@@ -133,6 +133,12 @@ function Say([string]$m) {
     $log.AppendText($m + "`r`n"); [Windows.Forms.Application]::DoEvents()
 }
 function Run-Script([string]$path, [string[]]$scriptArgs) {
+    if ($scriptArgs -contains 'Remove') {
+        Say 'Complete the anti-scam warnings in the separate Allow Remote Access console.'
+        $hostPath = Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
+        $child = Start-Process -FilePath $hostPath -ArgumentList ('-NoProfile -ExecutionPolicy Bypass -File "{0}" -Mode Remove' -f $path) -Wait -PassThru
+        return $child.ExitCode
+    }
     $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $path @scriptArgs 2>&1
     $rc = $LASTEXITCODE
     foreach ($l in $out) { Say ('  ' + [string]$l) }
@@ -210,11 +216,12 @@ $btnUndo.Add_Click({
     if ($r -ne 'Yes') { return }
     Busy $true; $log.Clear()
     try {
-        Say '=== UNDO ==='
+        Say '=== ALLOW REMOTE ACCESS ==='
         $inst = Find-Newest 'Install-RmmAppControl.v*.ps1' $Parts.AppControl
-        if ($inst) { [void](Run-Script $inst @('-Mode', 'Remove')) } else { Say '  Install-RmmAppControl.v*.ps1 missing.' }
-        Say ''
-        Say 'RESTART the PC to finish removing the block.'
+        if (-not $inst) { throw 'Install-RmmAppControl.v*.ps1 missing.' }
+        $removeCode = Run-Script $inst @('-Mode', 'Remove')
+        if ($removeCode -eq 0) { Say 'RESTART the PC to finish removing the block.' }
+        else { Say 'Cancelled or failed. Removal was not confirmed; protection may still be active.' }
     } catch { Say "ERROR: $($_.Exception.Message)" }
     Update-Status; Busy $false
 })

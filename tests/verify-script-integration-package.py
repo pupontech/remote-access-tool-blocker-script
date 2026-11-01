@@ -43,6 +43,10 @@ def main() -> int:
         required = {
             "Invoke-RemoteAccessProtection.ps1",
             "RemoteAccessProtection.psm1",
+            "RemoteAccessSafety.psm1",
+            "Start-Here.ps1",
+            "START-HERE.bat",
+            "Allow Remote Access.bat",
             "Run-Revert.bat",
             "HANDOFF-FOR-IMPLEMENTING-AGENT.md",
             "PREVIEW-NOT-A-RELEASE.txt",
@@ -118,12 +122,12 @@ def main() -> int:
         for member, data in (("RemoteAccessProtection.psm1", module), ("Invoke-RemoteAccessProtection.ps1", entry)):
             if b"System.Windows.Forms" in data or b"ShowDialog" in data:
                 fail(f"full GUI dependency found in {member}")
-        if b"T1A1S1R1" not in module or b"CommonDesktopDirectory" not in module or b"Action Toggle" not in module:
+        if b"T1A1S1R1" not in module or b"CommonDesktopDirectory" not in module or b"Allow Remote Access" not in module:
             fail("all-blocked default or shared desktop toggle contract is missing")
         for marker in (
             b"Set-RemoteAccessProtection -State Blocked",
             b"Invoke-RemoteAccessProtectionInstaller -Mode Enforce",
-            b"Type UNBLOCK to remove this protection policy",
+            b"Invoke-RemoteAccessProtectionAllow",
             b"New-RemoteAccessProtectionShortcut -InstallRoot $InstallRoot",
             b"Set-RemoteAccessProtectionPolicyDefaults -SourcePolicyDir $source.PolicyDir -TargetPolicyDir $targetPolicy",
             b"Enable-RemoteAccessProtection",
@@ -149,6 +153,10 @@ def main() -> int:
         mappings = {
             "Invoke-RemoteAccessProtection.ps1": "integration/Invoke-RemoteAccessProtection.ps1",
             "RemoteAccessProtection.psm1": "integration/RemoteAccessProtection.psm1",
+            "RemoteAccessSafety.psm1": "integration/RemoteAccessSafety.psm1",
+            "Start-Here.ps1": "integration/Start-Here.ps1",
+            "START-HERE.bat": "integration/START-HERE.bat",
+            "Allow Remote Access.bat": "integration/Allow Remote Access.bat",
             "Run-Revert.bat": "revert/Run-Revert.bat",
             "HANDOFF-FOR-IMPLEMENTING-AGENT.md": "docs/script-integration-handoff.md",
             "PREVIEW-NOT-A-RELEASE.txt": "integration/PREVIEW-NOT-A-RELEASE.txt",

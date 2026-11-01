@@ -63,6 +63,7 @@ function Resolve-RemoteAccessProtectionSource {
         RevertBatch = Join-Path $revertRoot 'Run-Revert.bat'
         Controller = Join-Path $moduleRoot 'Invoke-RemoteAccessProtection.ps1'
         Module = Join-Path $moduleRoot 'RemoteAccessProtection.psm1'
+        SafetyModule = Join-Path $moduleRoot 'RemoteAccessSafety.psm1'
     }
 }
 
@@ -212,16 +213,23 @@ function New-RemoteAccessProtectionShortcut {
     if (-not (Test-Path -LiteralPath $ControllerPath)) { throw "Desktop controller not found: $ControllerPath" }
     $desktop = [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonDesktopDirectory)
     if (-not $desktop -or -not (Test-Path -LiteralPath $desktop)) { throw 'The shared Windows desktop folder could not be resolved.' }
-    $shortcutPath = Join-Path $desktop 'Remote access protection.lnk'
     $shell = New-Object -ComObject WScript.Shell
-    $shortcut = $shell.CreateShortcut($shortcutPath)
-    $shortcut.TargetPath = $script:WindowsPowerShellPath
-    $shortcut.Arguments = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Action Toggle' -f $ControllerPath
-    $shortcut.WorkingDirectory = $InstallRoot
-    $shortcut.Description = 'Turn remote-access tool blocking on or off. Administrator approval is required.'
-    $shortcut.IconLocation = $script:WindowsPowerShellPath + ',0'
-    $shortcut.Save()
-    Write-Host "Desktop toggle created: $shortcutPath"
+    foreach ($control in @(
+        @{ Name = 'Allow Remote Access'; Action = 'Allow'; Description = 'Danger: removes remote-access blocking after identity checks and explicit warnings.' },
+        @{ Name = 'Block Remote Access'; Action = 'Enable'; Description = 'Restore Windows App Control remote-access blocking.' }
+    )) {
+        $shortcutPath = Join-Path $desktop ($control.Name + '.lnk')
+        $shortcut = $shell.CreateShortcut($shortcutPath)
+        $shortcut.TargetPath = $script:WindowsPowerShellPath
+        $shortcut.Arguments = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Action {1}' -f $ControllerPath, $control.Action
+        $shortcut.WorkingDirectory = $InstallRoot
+        $shortcut.Description = $control.Description
+        $shortcut.IconLocation = $script:WindowsPowerShellPath + ',0'
+        $shortcut.Save()
+        Write-Host "Desktop control created: $shortcutPath"
+    }
+    $legacyShortcut = Join-Path $desktop 'Remote access protection.lnk'
+    if (Test-Path -LiteralPath $legacyShortcut) { Remove-Item -LiteralPath $legacyShortcut -Force }
 }
 
 function Set-RemoteAccessProtectionPolicyDefaults {
@@ -273,7 +281,7 @@ function Install-RemoteAccessProtection {
 
     $controllerSource = $source.Controller
     $moduleSource = $source.Module
-    foreach ($path in @($controllerSource, $moduleSource, $source.Installer, $source.RevertScript, $source.RevertBatch)) {
+    foreach ($path in @($controllerSource, $moduleSource, $source.SafetyModule, $source.Installer, $source.RevertScript, $source.RevertBatch)) {
         if (-not (Test-Path -LiteralPath $path)) { throw "Required integration asset missing: $path" }
         $destination = Join-Path $InstallRoot (Split-Path $path -Leaf)
         if ([System.IO.Path]::GetFullPath($path) -ne [System.IO.Path]::GetFullPath($destination)) {
@@ -293,7 +301,20 @@ function Install-RemoteAccessProtection {
 
     New-RemoteAccessProtectionShortcut -InstallRoot $InstallRoot
     Set-RemoteAccessProtection -State Blocked -InstallRoot $InstallRoot
-    Write-Host 'Install complete. The desktop icon is the ordinary on/off control; blocking is enabled by default.'
+    Write-Host 'Install complete. Use Allow Remote Access only for verified support; Block Remote Access restores protection.'
+}
+
+function Invoke-RemoteAccessProtectionAllow {
+    [CmdletBinding()]
+    param()
+
+    Assert-RemoteAccessProtectionWindows
+    if (-not (Test-RemoteAccessProtectionAdministrator)) { throw 'Allow Remote Access requires administrator approval.' }
+    $current = Get-RemoteAccessProtectionState
+    if ($current.State -eq 'Unknown') { throw "Cannot allow remote access from an unknown policy state: $($current.Reason)" }
+    if ($current.State -eq 'Unblocked') { Write-Host 'This project is already not blocking remote-access tools. No change made.'; return }
+    # The policy engine requires the shared anti-scam confirmations at its removal boundary.
+    Set-RemoteAccessProtection -State Unblocked -InstallRoot (Get-RemoteAccessProtectionInstallRoot)
 }
 
 function Invoke-RemoteAccessProtectionToggle {
@@ -306,10 +327,7 @@ function Invoke-RemoteAccessProtectionToggle {
     $current = Get-RemoteAccessProtectionState
     if ($current.State -eq 'Unknown') { throw "Cannot safely toggle an unknown policy state: $($current.Reason)" }
     if ($current.State -eq 'Blocked') {
-        Write-Warning 'Turning protection off allows the blocked remote-access tools covered by this project to start. Other Windows policies are not changed.'
-        $answer = Read-Host 'Type UNBLOCK to remove this protection policy'
-        if ($answer -cne 'UNBLOCK') { Write-Host 'No change; remote-access tools remain blocked.'; return }
-        Set-RemoteAccessProtection -State Unblocked -InstallRoot $InstallRoot
+        Invoke-RemoteAccessProtectionAllow
     } else {
         Set-RemoteAccessProtection -State Blocked -InstallRoot $InstallRoot
     }
@@ -323,11 +341,11 @@ function Show-RemoteAccessProtectionStatus {
     $state = Get-RemoteAccessProtectionState
     switch ($state.State) {
         'Blocked' { Write-Host 'Status: BLOCKED by the project policy.' }
-        'Unblocked' { Write-Host 'Status: NOT BLOCKED; click the desktop icon to enable protection.' }
+        'Unblocked' { Write-Host 'Status: NOT BLOCKED; use Block Remote Access to enable protection.' }
         default { Write-Host 'Status: UNKNOWN; run as administrator and inspect the Code Integrity policy state.' }
     }
     Write-Host $state.Reason
     if ($state.Variant) { Write-Host "Installed variant: $($state.Variant)" }
 }
 
-Export-ModuleMember -Function Get-RemoteAccessProtectionInstallRoot, Test-RemoteAccessProtectionAdministrator, ConvertFrom-RemoteAccessPolicyList, Get-RemoteAccessProtectionState, Install-RemoteAccessProtection, Enable-RemoteAccessProtection, Invoke-RemoteAccessProtectionToggle, Show-RemoteAccessProtectionStatus
+Export-ModuleMember -Function Get-RemoteAccessProtectionInstallRoot, Test-RemoteAccessProtectionAdministrator, ConvertFrom-RemoteAccessPolicyList, Get-RemoteAccessProtectionState, Install-RemoteAccessProtection, Enable-RemoteAccessProtection, Invoke-RemoteAccessProtectionAllow, Invoke-RemoteAccessProtectionToggle, Show-RemoteAccessProtectionStatus

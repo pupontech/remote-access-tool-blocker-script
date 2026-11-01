@@ -95,7 +95,7 @@ $module = Get-Content -Raw $modulePath
 $tests = @(
     @{ Name = 'all four switchable tools default blocked'; Text = $module; Pattern = 'T1A1S1R1' },
     @{ Name = 'desktop shortcut lives on common desktop'; Text = $module; Pattern = 'CommonDesktopDirectory' },
-    @{ Name = 'desktop shortcut launches toggle action'; Text = $module; Pattern = 'Action Toggle' },
+    @{ Name = 'desktop shortcut launches toggle action'; Text = $module; Pattern = "Action = 'Allow'" },
     @{ Name = 'entry point defaults to install'; Text = $entry; Pattern = 'Action = ''Install''' },
     @{ Name = 'module refuses 32-bit App Control access'; Text = $module; Pattern = 'Is64BitOperatingSystem' },
     @{ Name = 'controller upgrades 32-bit launchers'; Text = $entry; Pattern = 'Sysnative' },
@@ -107,10 +107,10 @@ foreach ($test in $tests) {
     if (-not $found) { throw "Contract failed: $($test.Name)" }
 }
 
-if (-not $entry.Contains('if ($Action -eq ''Toggle'' -and -not $isTrustedController)')) {
+if (-not $entry.Contains('if ($Action -in @(''Allow'', ''Toggle'') -and -not $isTrustedController)')) {
     throw 'The toggle must refuse elevation from a user-writable controller path.'
 }
-if (-not $entry.Contains('if (($Action -in @(''Install'', ''Enable'')) -and -not $isAdmin)')) {
+if (-not $entry.Contains('if (-not $isAdmin -and ($Action -eq ''Install'' -or ($Action -eq ''Enable'' -and -not $isTrustedController)))')) {
     throw 'Install and enable actions must not self-elevate from an untrusted package path.'
 }
 if ($entry.Contains('[string]$InstallRoot')) {
@@ -132,9 +132,9 @@ if ($installBody.IndexOf('New-RemoteAccessProtectionShortcut') -lt 0 -or
 if ($module -match 'Export-ModuleMember[^\r\n]*Set-RemoteAccessProtection') {
     throw 'Direct policy removal must not be exported as a routine integration command.'
 }
-if ($module -notmatch "Type UNBLOCK to remove this protection policy") {
-    throw 'Unblocking must require explicit typed confirmation from the toggle.'
-}
+if ($module -notmatch 'Invoke-RemoteAccessProtectionAllow') { throw 'Named allow action missing.' }
+$engineText = Get-Content -Raw (Join-Path $repoRoot 'src/appcontrol/Install-RmmAppControl.v2026-10-11.3.ps1')
+if ($engineText -notmatch 'Request-AllowRemoteAccessConsent') { throw 'Engine consent gate missing.' }
 
 $revertLauncher = Get-Content -Raw (Join-Path $repoRoot 'revert\Run-Revert.bat')
 $winOnlyRevertIndex = $revertLauncher.IndexOf('Revert-RemoteAccessBlock-WinOnly.v*.ps1')
