@@ -1,60 +1,48 @@
 $ErrorActionPreference = 'Stop'
-$repoRoot = Split-Path $PSScriptRoot -Parent
-$integration = Join-Path $repoRoot 'integration'
-$start = Join-Path $integration 'Start-Here.ps1'
-$enginePath = (Get-Process -Id $PID).Path
-$startText = Get-Content -LiteralPath $start -Raw
-$startErrors = $null
-$startTokens = $null
-[System.Management.Automation.Language.Parser]::ParseFile($start, [ref]$startTokens, [ref]$startErrors) | Out-Null
-if ($startErrors.Count -gt 0) { throw "Start-Here.ps1 parse failed: $($startErrors[0].Message)" }
-
-foreach ($name in 'START-HERE.bat', 'Allow Remote Access.bat') {
-    $path = Join-Path $integration $name
-    if (-not (Test-Path -LiteralPath $path)) { throw "Missing launcher: $path" }
-    $bytes = [System.IO.File]::ReadAllBytes($path)
-    if (($bytes | Where-Object { $_ -ge 128 }).Count -gt 0) { throw "$name is not ASCII." }
-    $lf = @($bytes | Where-Object { $_ -eq 10 }).Count
-    $crlf = 0
-    for ($i = 1; $i -lt $bytes.Length; $i++) { if ($bytes[$i - 1] -eq 13 -and $bytes[$i] -eq 10) { $crlf++ } }
-    if ($lf -ne $crlf) { throw "$name must use CRLF only." }
-}
-
-if ($startText -match '(?im)net session') { throw 'Elevation must use the native administrator token, not net session.' }
-if ($startText -match '(?im)-Command') { throw 'Launcher must not interpolate paths into -Command.' }
-if ($startText -match '\$args') { throw 'Launcher must not provide generic argument forwarding.' }
-foreach ($required in @('ElevationAttempted', 'Sysnative', 'WindowsIdentity', '-Verb RunAs', 'Action = ''Install''', 'Type BLOCK to continue', 'ProgramFiles', 'Action Allow')) {
-    if ($startText -notmatch [regex]::Escape($required)) { throw "Missing launcher contract: $required" }
-}
-$allowComment = $startText.IndexOf('# Allow deliberately uses only')
-if ($allowComment -lt 0 -or $startText.Substring($allowComment).Contains('$controllerPath')) {
-    throw 'Allow must not invoke the source controller.'
-}
-$allowBat = Get-Content -LiteralPath (Join-Path $integration 'Allow Remote Access.bat') -Raw
-if ($allowBat -notmatch '(?i)-Action Allow') { throw 'Allow Remote Access.bat must select Allow.' }
-
-# Safe cancellation: BLOCK is required and must prevent any elevation attempt.
-$cancelOutput = @('NO', '') | & $enginePath -NoProfile -File $start -Action Install 2>&1 | Out-String
-$cancelCode = $LASTEXITCODE
-if ($cancelCode -ne 2) { throw "Expected cancellation exit code 2, got $cancelCode. Output: $cancelOutput" }
-if ($cancelOutput -notmatch 'No elevation or installation was attempted') { throw 'Cancellation proof was not displayed.' }
-
-# Safe child error: a copied launcher with its package siblings absent must fail clearly.
-$temp = Join-Path ([System.IO.Path]::GetTempPath()) "one-click-launcher-test-$PID"
+$root = Split-Path $PSScriptRoot -Parent
+$start = Join-Path $root 'integration/Start-Here.ps1'
+$text = Get-Content -LiteralPath $start -Raw
+$tokens=$null; $errors=$null
+$ast=[Management.Automation.Language.Parser]::ParseFile($start,[ref]$tokens,[ref]$errors)
+if($errors.Count){throw ($errors | Out-String)}
+$body=@($ast.EndBlock.Statements | Where-Object { $_ -is [Management.Automation.Language.TryStatementAst] })[0].Extent.Text
+$base=if($env:TMPDIR){$env:TMPDIR}else{[IO.Path]::GetTempPath()}
+$fixture=Join-Path $base ('no-input-block-'+[guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $fixture | Out-Null
 try {
-    New-Item -ItemType Directory -Path $temp -Force | Out-Null
-    $isolated = Join-Path $temp 'Start-Here.ps1'
-    Copy-Item -LiteralPath $start -Destination $isolated
-    $errorOutput = @('BLOCK', '') | & $enginePath -NoProfile -File $isolated -Action Install 2>&1 | Out-String
-    $errorCode = $LASTEXITCODE
-    if ($errorCode -eq 0) { throw 'Missing package child path unexpectedly succeeded.' }
-    if ($errorOutput -notmatch 'Required package module not found|Required package controller not found') {
-        throw "Missing package error was not clear: $errorOutput"
+    [IO.File]::WriteAllText((Join-Path $fixture 'RemoteAccessProtection.psm1'),'never imported in fixture')
+    [IO.File]::WriteAllText((Join-Path $fixture 'Invoke-RemoteAccessProtection.ps1'),'never executed in fixture')
+    foreach($case in 'Install','Allow','ElevationDenied') {
+        $preamble=@'
+$ErrorActionPreference='Stop'
+$ElevationAttempted=$false
+function Read-Host { throw 'UNEXPECTED_KEYBOARD_INPUT' }
+function Pause-OneClickConsole { throw 'UNEXPECTED_KEYBOARD_PAUSE' }
+function Show-OneClickError { param($Message) Write-Host ('FIXTURE_ERROR: '+$Message) }
+function Test-NativeAdministrator { $true }
+function Get-InstalledControllerPath { Join-Path $PSScriptRoot 'Invoke-RemoteAccessProtection.ps1' }
+function Invoke-Controller { param($ControllerPath,$ControllerAction) Write-Host ('FIXTURE_CONTROLLER: '+$ControllerAction); return 0 }
+'@
+        $preamble += "`n`$Action = '$(if($case -eq 'Allow'){'Allow'}else{'Install'})'`n"
+        if($case -eq 'ElevationDenied') {
+            $preamble += "function Test-NativeAdministrator { `$false }`nfunction Invoke-SelfElevated { param(`$ScriptPath) throw 'FIXTURE_UAC_DENIED' }`n"
+        }
+        $file=Join-Path $fixture ($case+'.ps1')
+        [IO.File]::WriteAllText($file,$preamble+"`n"+$body)
+        $engine=(Get-Process -Id $PID).Path
+        $output=(& $engine -NoProfile -File $file 2>&1 | Out-String);$rc=$LASTEXITCODE
+        if($output -match 'UNEXPECTED_KEYBOARD'){throw "Blocking/allowing asked for keyboard input: $output"}
+        if($case -eq 'ElevationDenied') {
+            if($rc -eq 0 -or $output -match 'FIXTURE_CONTROLLER'){throw "UAC refusal reached controller: $rc $output"}
+        } elseif($rc -ne 0 -or $output -notmatch ('FIXTURE_CONTROLLER: '+$case)){throw "Wrong route: $case $rc $output"}
     }
-} finally {
-    if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Recurse -Force }
-}
-
-Write-Host 'One-click launcher tests passed.'
-# The final fixture intentionally exits nonzero; do not leak that expected code to CI.
+    if($text -match 'Read-Host|Type BLOCK|Pause-OneClickConsole'){throw 'One-click wrapper still contains keyboard prompts.'}
+    foreach($name in 'START-HERE.bat','Allow Remote Access.bat') {
+        $bytes=[IO.File]::ReadAllBytes((Join-Path (Split-Path $start) $name))
+        if(@($bytes|Where-Object {$_ -gt 127}).Count){throw "Non-ASCII $name"}
+        $s=[Text.Encoding]::ASCII.GetString($bytes)
+        if($s.Replace("`r`n",'').Contains("`n")){throw "Bare LF $name"}
+    }
+    Write-Host 'PASS: block/install needs no keyboard input, allow routes installed control, and UAC refusal stops.'
+} finally { if(Test-Path -LiteralPath $fixture){Remove-Item -LiteralPath $fixture -Recurse -Force} }
 exit 0

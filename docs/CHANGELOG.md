@@ -2,6 +2,14 @@
 
 Notable project changes. Historical dates refer to the versioning dates carried in script filenames.
 
+## 0.1.2-preview.1 — Direct blocking and native warning popups
+
+- Remove the typed BLOCK confirmation and keyboard pauses from the one-click blocking/setup path. Windows administrator consent remains required when needed.
+- Keep the existing anti-scam warning text, but replace console typing with three native Windows Yes/No/Cancel popups. No is the default; only three explicit Yes choices approve removal.
+- Remove keyboard pauses from the installed controller and compatibility recovery launcher. Do not fall back to console consent when native UI is unavailable.
+- Test the real native popups on Windows: refusals at each stage, Cancel, window close, three Yes approvals, default No, and captured screenshots. Exercise packaged blocking with stdin closed and an inert controller, never a real policy install.
+- Earlier policy-state/recovery/ACL findings and live enforcement/UAC/reboot acceptance remain pending.
+
 ## 0.1.1-preview.1 — Start Here and anti-scam safeguards
 
 - Add `START-HERE.bat` for interactive setup and `Allow Remote Access.bat` for the installed control.

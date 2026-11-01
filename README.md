@@ -6,34 +6,30 @@ Blocking a support tool can sever remote access. Have a local recovery route and
 
 ## Download — testing preview, not production-ready
 
-[Download the Windows App Control script ZIP](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.1-preview.1/remote-access-tool-blocker-script-only-0.1.1-preview.zip) · [SHA-256 checksum](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.1-preview.1/remote-access-tool-blocker-script-only-0.1.1-preview.zip.sha256) · [Release notes](https://github.com/pupontech/remote-access-tool-blocker-script/releases/tag/v0.1.1-preview.1)
+[Download the Windows App Control script ZIP](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.2-preview.1/remote-access-tool-blocker-script-only-0.1.2-preview.zip) · [SHA-256 checksum](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.2-preview.1/remote-access-tool-blocker-script-only-0.1.2-preview.zip.sha256) · [Release notes](https://github.com/pupontech/remote-access-tool-blocker-script/releases/tag/v0.1.2-preview.1)
 
 This is a **Windows PowerShell script package**, not an EXE installer or antivirus. It installs Windows App Control rules to block new starts of covered remote-access software and adds separate **Allow Remote Access** and **Block Remote Access** desktop shortcuts. **There is no ESET integration, website filtering, or software removal in this repository.** The download contains the scripts, compiled policy variants, Windows-only emergency recovery, and `HANDOFF-FOR-IMPLEMENTING-AGENT.md` for embedding it into another script. The optional GUI kit in the source tree is not part of this script-only ZIP.
 
 ### Run the downloaded package
 
 1. Extract the entire ZIP; keep its scripts and `policy` folder together.
-2. On a disposable Windows 10/11 test PC, double-click **START-HERE.bat**. Read the blocking warning, type `BLOCK`, and approve the Windows administrator prompt.
-3. After setup, **Allow Remote Access** removes this project's blocking only after administrator approval and three typed anti-scam confirmations. The ZIP also includes `Allow Remote Access.bat`, which opens the installed control; run setup first.
+2. On a disposable Windows 10/11 test PC, double-click **START-HERE.bat**. It applies blocking directly after any required Windows administrator approval. No typing or extra confirmation is needed.
+3. After setup, **Allow Remote Access** removes this project's blocking only after administrator approval and three native Windows anti-scam confirmation popups. The ZIP also includes `Allow Remote Access.bat`, which opens the installed control; run setup first.
 4. Use the desktop **Block Remote Access** shortcut to restore blocking. Close already-running remote tools before testing new launches. Restart when instructed.
 
 ### STOP: never give a stranger remote access
 
 Remote access can let someone see your screen, steal files and passwords, or take money. **An unexpected caller claiming to be Microsoft, your bank, a government office, or technical support is not proof of identity. Caller ID can be faked.** Hang up. Independently find the organisation's official number on a trusted website, your bill, or the back of your card, and dial it yourself. Do not use a number or link the caller supplies, or a search advertisement. Never share passwords or one-time codes, and do not use banking while someone is connected.
 
-Allowing access requires these exact phrases, one at a time:
+Allowing access displays three native Windows warning popups: independently verifying the person, understanding the risk, and final permission to allow remote access. Each offers **Yes / No / Cancel**, with **No** selected by default. Only explicitly choosing **Yes on all three** permits removal. No typing is required.
 
-1. `I VERIFIED THE PERSON`
-2. `I UNDERSTAND THE RISK`
-3. `ALLOW REMOTE ACCESS`
-
-Blank, wrong, or cancelled input leaves the policy unchanged. These prompts ask **you** to verify the person; the tool cannot verify their identity. Removing this block does not itself start a support session or make a caller trustworthy.
+Choosing No, Cancel, or closing a popup leaves the policy unchanged. These prompts ask **you** to verify the person; the tool cannot verify their identity. Removing this block does not itself start a support session or make a caller trustworthy.
 
 **Needs testing:** both Windows PowerShell 5.1 and PowerShell 7 CI exercise parsing, synthetic logic, recovery-copy fixtures, and ZIP verification—not live policy enforcement, UAC, or reboot transitions. Known review concerns remain around policy-state/variant verification, staged-versus-active state on older Windows, removal error reporting, exact recovery backups, and installation-folder trust. These are not claimed fixed in this preview. Do not deploy to production or rely on it as your only protection; keep local recovery access.
 
 ## Primary integration: no-GUI desktop toggle
 
-For embedding in another Windows PowerShell script, see [`docs/script-integration-handoff.md`](docs/script-integration-handoff.md). The integration path creates the shared-desktop **Allow Remote Access** and **Block Remote Access** controls before enforcing **T1A1S1R1** (TeamViewer, AnyDesk, Splashtop, and RustDesk blocked). Disabling requires administrator approval and the three anti-scam confirmations; blocking reinstalls the policy. It removes only this project's fixed policy ID. No full GUI, scheduled task, service, or automatic unblock is involved.
+For embedding in another Windows PowerShell script, see [`docs/script-integration-handoff.md`](docs/script-integration-handoff.md). The integration path creates the shared-desktop **Allow Remote Access** and **Block Remote Access** controls before enforcing **T1A1S1R1** (TeamViewer, AnyDesk, Splashtop, and RustDesk blocked). Disabling requires administrator approval and the three anti-scam confirmations; blocking reinstalls the policy. It removes only this project's fixed policy ID. There is no full application window, scheduled task, service, or automatic unblock; the allow warnings use native Windows popups.
 
 Build the standalone preview package from a clean committed checkout:
 

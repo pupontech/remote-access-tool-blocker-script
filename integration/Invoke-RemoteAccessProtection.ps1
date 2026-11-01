@@ -31,7 +31,7 @@ try {
         $systemDirectory = if ($needs64Bit) { 'Sysnative' } else { 'System32' }
         $powershell = Join-Path $env:SystemRoot "$systemDirectory\WindowsPowerShell\v1.0\powershell.exe"
         if (-not (Test-Path -LiteralPath $powershell)) { throw "Windows PowerShell was not found: $powershell" }
-        $arguments = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Action {1}' -f $PSCommandPath, $Action
+        $arguments = '-NoProfile -STA -ExecutionPolicy Bypass -File "{0}" -Action {1}' -f $PSCommandPath, $Action
         $startArgs = @{
             FilePath = $powershell
             ArgumentList = $arguments
@@ -48,17 +48,20 @@ try {
         'Enable' { Enable-RemoteAccessProtection }
         'Allow' {
             Invoke-RemoteAccessProtectionAllow
-            [void](Read-Host 'Press Enter to close')
         }
         'Toggle' {
             Invoke-RemoteAccessProtectionToggle
-            [void](Read-Host 'Press Enter to close')
         }
         'Status' { Show-RemoteAccessProtectionStatus }
     }
     exit 0
 } catch {
     Write-Host ("ERROR: " + $_.Exception.Message) -ForegroundColor Red
-    if ($Action -in @('Allow', 'Toggle', 'Enable')) { [void](Read-Host 'Press Enter to close') }
+    if ($env:OS -eq 'Windows_NT' -and $Action -ne 'Status') {
+        try {
+            Add-Type -AssemblyName System.Windows.Forms
+            [void][System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Remote Access Protection - Error', 'OK', 'Error')
+        } catch { Write-Host 'The error dialog could not be displayed.' -ForegroundColor Red }
+    }
     exit 1
 }

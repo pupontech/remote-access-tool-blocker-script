@@ -120,7 +120,7 @@ def main() -> int:
         module = zf.read("RemoteAccessProtection.psm1")
         entry = zf.read("Invoke-RemoteAccessProtection.ps1")
         for member, data in (("RemoteAccessProtection.psm1", module), ("Invoke-RemoteAccessProtection.ps1", entry)):
-            if b"System.Windows.Forms" in data or b"ShowDialog" in data:
+            if b"New-Object Windows.Forms.Form" in data or b"ShowDialog" in data:
                 fail(f"full GUI dependency found in {member}")
         if b"T1A1S1R1" not in module or b"CommonDesktopDirectory" not in module or b"Allow Remote Access" not in module:
             fail("all-blocked default or shared desktop toggle contract is missing")

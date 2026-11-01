@@ -99,7 +99,7 @@ $tests = @(
     @{ Name = 'entry point defaults to install'; Text = $entry; Pattern = 'Action = ''Install''' },
     @{ Name = 'module refuses 32-bit App Control access'; Text = $module; Pattern = 'Is64BitOperatingSystem' },
     @{ Name = 'controller upgrades 32-bit launchers'; Text = $entry; Pattern = 'Sysnative' },
-    @{ Name = 'no full GUI dependency'; Text = $module + $entry; Pattern = 'System[.]Windows[.]Forms' ; Forbidden = $true }
+    @{ Name = 'no full GUI dependency'; Text = $module + $entry; Pattern = 'New-Object\s+(?:System[.])?Windows[.]Forms[.]Form' ; Forbidden = $true }
 )
 foreach ($test in $tests) {
     $found = $test.Text -match $test.Pattern

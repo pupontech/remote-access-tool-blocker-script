@@ -14,7 +14,7 @@ The policy has the fixed ID `{2D13BFB7-4304-4847-9CDD-37820D3EE9B7}`. Reusing th
 
 ### Primary: no-GUI integration (`T1A1S1R1`)
 
-The script integration installs the Enforce policy with TeamViewer, AnyDesk, Splashtop and RustDesk all blocked. It creates separate **Allow Remote Access** and **Block Remote Access** desktop controls before enforcing the policy. Allowing requires administrator approval and three exact anti-scam confirmations. Blocking reinstalls the policy. `START-HERE.bat` is the double-click setup entry point; the raw controller remains available for elevated integrations. This path has no full GUI, service, scheduled task, or automatic unblock. See [the integration handoff](script-integration-handoff.md).
+The script integration installs the Enforce policy with TeamViewer, AnyDesk, Splashtop and RustDesk all blocked. It creates separate **Allow Remote Access** and **Block Remote Access** desktop controls before enforcing the policy. Allowing requires administrator approval and three native Windows Yes/No/Cancel anti-scam warning popups, with No selected by default. Blocking reinstalls the policy directly, without typing or keyboard pauses. `START-HERE.bat` is the double-click setup entry point; the raw controller remains available for elevated integrations. This path has no full GUI, service, scheduled task, or automatic unblock. See [the integration handoff](script-integration-handoff.md).
 
 ### Optional: Windows-only GUI kit (`T1A1S0R1`)
 

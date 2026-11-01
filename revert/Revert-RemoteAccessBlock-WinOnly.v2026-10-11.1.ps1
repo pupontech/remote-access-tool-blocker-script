@@ -148,10 +148,8 @@ function Get-VariantFromName([string]$name) {
 }
 function Get-Stamp { (Get-Date -Format 'yyyy-MM-dd_HHmmss') }
 function Wait-Key {
-    if ($NoPause) { return }
-    Write-Host ''
-    Write-Host 'Press any key to close ...' -ForegroundColor DarkGray
-    try { [void]$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown') } catch { Start-Sleep -Seconds 1 }
+    # Compatibility helper: confirmations now use native dialogs, never keyboard pauses.
+    return
 }
 
 # --------------------------------------------------------------------- banner

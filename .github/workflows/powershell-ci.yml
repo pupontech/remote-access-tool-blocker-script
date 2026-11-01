@@ -80,10 +80,12 @@ jobs:
           $version = (Get-Content -Raw VERSION).Trim()
           python tests/verify-release-source.py "dist/remote-tools-block-windows-$version.zip"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Native packaged Start Here cancellation
+      - name: Native packaged Start Here without keyboard input
         run: |
           $version = (Get-Content -Raw VERSION).Trim()
           ./tests/Test-PackagedOneClick.ps1 -Archive "dist/remote-access-tool-blocker-script-only-$version-preview.zip"
+      - name: Native popup confirmation proof
+        run: ./tests/Test-NativeSafetyPopups.ps1
       - name: Upload Windows-only preview kits
         if: matrix.shell == 'pwsh'
         uses: actions/upload-artifact@v4
@@ -92,3 +94,4 @@ jobs:
           path: |
             dist/remote-tools-block-windows-*.zip*
             dist/remote-access-tool-blocker-script-only-*.zip*
+            dist/native-safety-proof/

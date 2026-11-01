@@ -3,100 +3,102 @@ $repoRoot = Split-Path $PSScriptRoot -Parent
 $modulePath = Join-Path $repoRoot 'integration\RemoteAccessSafety.psm1'
 if (-not (Test-Path -LiteralPath $modulePath)) { throw "Missing module: $modulePath" }
 
+$source = Get-Content -LiteralPath $modulePath -Raw
+$tokens = $null; $errors = $null
+[Management.Automation.Language.Parser]::ParseFile($modulePath, [ref]$tokens, [ref]$errors) | Out-Null
+if ($errors.Count -gt 0) { throw "Parse failed: $($errors[0].Message)" }
+
 Import-Module $modulePath -Force -ErrorAction Stop
 $moduleInfo = Get-Module RemoteAccessSafety
 $exports = @(Get-Command -Module RemoteAccessSafety | Select-Object -ExpandProperty Name)
 if ($exports.Count -ne 1 -or $exports[0] -ne 'Confirm-AllowRemoteAccess') {
     throw "Module must export only Confirm-AllowRemoteAccess; exported: $($exports -join ', ')"
 }
+if ($source -match '\bRead-Host\b') { throw 'Console Read-Host fallback is forbidden.' }
+if ($source -notmatch 'MessageBoxDefaultButton\]::Button2') { throw 'Native popup must default to No.' }
+if ($source -notmatch 'MessageBoxButtons\]::YesNoCancel') { throw 'Native popup must offer Yes, No and Cancel.' }
+if ($source -notmatch 'MessageBoxIcon\]::Warning') { throw 'Native popup must use Warning icon.' }
+if ($source -notmatch 'System\.Windows\.Forms') { throw 'Native Windows Forms MessageBox is required.' }
+if ($source -notmatch 'Add-Type') { throw 'Windows Forms assembly must load lazily.' }
+if ($source -notmatch 'Show-RemoteAccessSafetyPrompt') { throw 'Private popup helper is required.' }
+if ($source -match 'Export-ModuleMember[^\r\n]*Show-RemoteAccessSafetyPrompt') { throw 'Popup helper must remain private.' }
 
-function Invoke-ConfirmationCase {
-    param(
-        [Parameter(Mandatory = $true)][object[]]$Answers,
-        [Parameter(Mandatory = $true)][string]$Name
-    )
+if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
+$nativeCheck = @(& $moduleInfo {
+    $value = @(Show-RemoteAccessSafetyPrompt -Title 'test' -Text 'test')
+    [pscustomobject]@{ Value = if ($value.Count -eq 1) { $value[0] } else { $null }; Count = $value.Count }
+})
+if ($nativeCheck.Count -ne 1 -or $nativeCheck[0].Count -ne 1 -or $nativeCheck[0].Value -isnot [bool]) {
+    throw 'Native popup helper must return exactly one Boolean on non-Windows/error paths.'
+}
+if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT -and $nativeCheck[0].Value) {
+    throw 'Native popup helper must refuse on non-Windows.'
+}
+}
 
+$requiredText = @(
+    'WARNING: Remote access can expose your files, passwords, and banking information.',
+    'Never allow a stranger or an unexpected caller to connect. Caller ID is not proof.',
+    'If an unexpected caller asks for access, hang up. Independently find the company official number on a trusted website, bill, or card, then manually dial it.',
+    'Do not use a number or link supplied by the caller, and do not trust search ads.',
+    'Never share passwords or one-time codes, and never access your bank while connected.',
+    'Only proceed for a technician you know and trust in person, or support you independently contacted and verified.',
+    'WARNING: You are about to remove a safety barrier. A scammer may steal your money or private information.',
+    'FINAL WARNING: Do not continue because a caller is pressuring you. Cancel if you have any doubt.'
+)
+foreach ($text in $requiredText) {
+    if ($source.IndexOf($text, [StringComparison]::Ordinal) -lt 0) { throw "Preserved warning text missing: $text" }
+}
+
+function Invoke-Case {
+    param([object[]]$Answers, [bool]$Expected, [string]$Name)
     $results = @(& $moduleInfo {
         param($Answers)
-        $script:TestAnswers = @($Answers)
-        $script:TestAnswerIndex = 0
-        $script:TestPrompts = @()
-        $script:TestWarnings = @()
-        $script:TestWarningColors = @()
-        $script:TestOutput = @()
-        function Read-Host {
-            param([string]$Prompt)
-            $script:TestPrompts += $Prompt
-            if ($script:TestAnswerIndex -ge $script:TestAnswers.Count) { throw 'test input exhausted' }
-            $answer = $script:TestAnswers[$script:TestAnswerIndex]
-            $script:TestAnswerIndex++
+        $script:Calls = @()
+        $script:AnswerIndex = 0
+        function Show-RemoteAccessSafetyPrompt {
+            param([string]$Title, [string]$Text)
+            $script:Calls += [pscustomobject]@{ Title = $Title; Text = $Text }
+            if ($script:AnswerIndex -ge $Answers.Count) { throw 'test input exhausted' }
+            $answer = $Answers[$script:AnswerIndex]
+            $script:AnswerIndex++
             if ($answer -is [Exception]) { throw $answer }
-            return [string]$answer
+            return $answer
         }
-        function Write-Host {
-            param([object]$Object, [ConsoleColor]$ForegroundColor)
-            $script:TestWarnings += [string]$Object
-            $script:TestWarningColors += $ForegroundColor
-        }
-        $script:TestOutput = @(Confirm-AllowRemoteAccess)
+        $value = @(Confirm-AllowRemoteAccess)
         [pscustomobject]@{
-            Value = if ($script:TestOutput.Count -eq 1) { $script:TestOutput[0] } else { $null }
-            OutputCount = $script:TestOutput.Count
-            Prompts = @($script:TestPrompts)
-            Warnings = @($script:TestWarnings)
-            WarningColors = @($script:TestWarningColors)
+            Value = if ($value.Count -eq 1) { $value[0] } else { $null }
+            OutputCount = $value.Count
+            Calls = @($script:Calls)
         }
     } $Answers)
-
-    if ($results.Count -ne 1) { throw "$Name`: expected one result object, got $($results.Count)" }
+    if ($results.Count -ne 1) { throw "$Name`: expected one result object" }
     $result = $results[0]
-    if ($result.OutputCount -ne 1) { throw "$Name`: function must emit exactly one pipeline value, got $($result.OutputCount)" }
-    if ($result.Value -isnot [bool]) { throw "$Name`: result must be a Boolean, got $($result.Value.GetType().FullName)" }
-    if ($result.Value -ne $expected) { throw "$Name`: expected $expected, got $($result.Value)" }
-    if ($result.Prompts.Count -ne $expectedPrompts) {
-        throw "$Name`: expected $expectedPrompts prompt(s), got $($result.Prompts.Count)"
-    }
-    if ($result.Warnings.Count -lt 1) { throw "$Name`: warning was not displayed" }
-    if (@($result.WarningColors | Where-Object { $_ -ne [ConsoleColor]::Red }).Count -ne 0) {
-        throw "$Name`: every warning must be red"
-    }
-    if (-not ($result.Warnings -match 'files|passwords|banking')) { throw "$Name`: warning lacks sensitive-data risk" }
-    if (-not ($result.Warnings -match 'stranger|unexpected caller')) { throw "$Name`: warning lacks stranger warning" }
-    if (-not ($result.Warnings -match 'caller ID')) { throw "$Name`: warning lacks caller-ID warning" }
-    if (-not ($result.Warnings -match 'official number|trusted website|bill|card|manually dial')) { throw "$Name`: warning lacks independent number-verification warning" }
-    if (-not ($result.Warnings -match 'one-time codes|passwords|bank')) { throw "$Name`: warning lacks secret/bank warning" }
+    if ($result.OutputCount -ne 1 -or $result.Value -isnot [bool]) { throw "$Name`: output must be exactly one Boolean" }
+    if ($result.Value -ne $Expected) { throw "$Name`: expected $Expected, got $($result.Value)" }
+    $expectedCalls = if ($Expected) { 3 } else { $Answers.Count }
+    if ($result.Calls.Count -ne $expectedCalls) { throw "$Name`: expected $expectedCalls popup(s), got $($result.Calls.Count)" }
     return $result
 }
 
-$expected = $false; $expectedPrompts = 1
-Invoke-ConfirmationCase -Name 'blank first confirmation' -Answers @('') | Out-Null
-Invoke-ConfirmationCase -Name 'wrong-case first confirmation' -Answers @('i VERIFIED THE PERSON') | Out-Null
-Invoke-ConfirmationCase -Name 'first input exception' -Answers @([Exception]::new('read failed')) | Out-Null
+Invoke-Case -Name 'first refusal' -Answers @($false) -Expected $false | Out-Null
+Invoke-Case -Name 'second refusal' -Answers @($true, $false) -Expected $false | Out-Null
+Invoke-Case -Name 'third refusal' -Answers @($true, $true, $false) -Expected $false | Out-Null
+Invoke-Case -Name 'first exception' -Answers @([Exception]::new('closed')) -Expected $false | Out-Null
+Invoke-Case -Name 'second exception' -Answers @($true, [Exception]::new('closed')) -Expected $false | Out-Null
+Invoke-Case -Name 'third exception' -Answers @($true, $true, [Exception]::new('closed')) -Expected $false | Out-Null
+Invoke-Case -Name 'first nonbool' -Answers @('Yes') -Expected $false | Out-Null
+Invoke-Case -Name 'second nonbool' -Answers @($true, 1) -Expected $false | Out-Null
+Invoke-Case -Name 'third nonbool' -Answers @($true, $true, [int]1) -Expected $false | Out-Null
+$success = Invoke-Case -Name 'three explicit Yes answers' -Answers @($true, $true, $true) -Expected $true
 
-$expected = $false; $expectedPrompts = 2
-Invoke-ConfirmationCase -Name 'blank second confirmation' -Answers @('I VERIFIED THE PERSON', '') | Out-Null
-Invoke-ConfirmationCase -Name 'wrong-case second confirmation' -Answers @('I VERIFIED THE PERSON', 'i UNDERSTAND THE RISK') | Out-Null
-Invoke-ConfirmationCase -Name 'second input exception' -Answers @('I VERIFIED THE PERSON', [Exception]::new('read failed')) | Out-Null
-
-$expected = $false; $expectedPrompts = 3
-Invoke-ConfirmationCase -Name 'blank third confirmation' -Answers @('I VERIFIED THE PERSON', 'I UNDERSTAND THE RISK', '') | Out-Null
-Invoke-ConfirmationCase -Name 'wrong-case third confirmation' -Answers @('I VERIFIED THE PERSON', 'I UNDERSTAND THE RISK', 'allow remote access') | Out-Null
-Invoke-ConfirmationCase -Name 'third input exception' -Answers @('I VERIFIED THE PERSON', 'I UNDERSTAND THE RISK', [Exception]::new('read failed')) | Out-Null
-
-$expected = $true; $expectedPrompts = 3
-$success = Invoke-ConfirmationCase -Name 'exact confirmation sequence' -Answers @(
-    'I VERIFIED THE PERSON'
-    'I UNDERSTAND THE RISK'
-    'ALLOW REMOTE ACCESS'
-)
-if ($success.Prompts[0] -notmatch 'I VERIFIED THE PERSON' -or
-    $success.Prompts[1] -notmatch 'I UNDERSTAND THE RISK' -or
-    $success.Prompts[2] -notmatch 'ALLOW REMOTE ACCESS') {
-    throw 'Confirmation prompts did not identify the required exact phrases.'
-}
-
-$tokens = $null; $errors = $null
-[Management.Automation.Language.Parser]::ParseFile($modulePath, [ref]$tokens, [ref]$errors) | Out-Null
-if ($errors.Count -gt 0) { throw "Parse failed: $($errors[0].Message)" }
+$first = $success.Calls[0].Text
+$second = $success.Calls[1].Text
+$third = $success.Calls[2].Text
+for ($i=0; $i -lt 3; $i++) { if ($success.Calls[$i].Title -notlike ('*({0} of 3)' -f ($i+1))) { throw 'Popup stage title is missing.' } }
+if ($first -notmatch 'I VERIFIED THE PERSON' -or $second -notmatch 'I UNDERSTAND THE RISK' -or $third -notmatch 'ALLOW REMOTE ACCESS') { throw 'Popup stages are out of order or missing.' }
+if ($first -notmatch 'files.*passwords.*banking' -or $first -notmatch 'stranger|unexpected caller' -or $first -notmatch 'caller ID' -or $first -notmatch 'official number|trusted website|bill|card|manually dial' -or $first -notmatch 'one-time codes|bank') { throw 'Core scam/password/banking warning text was not preserved in popup body.' }
+if ($second -notmatch 'safety barrier|scammer') { throw 'Second warning text missing.' }
+if ($third -notmatch 'FINAL WARNING|pressuring you|Cancel') { throw 'Final warning text missing.' }
 
 Write-Host 'Remote access safety tests passed.'

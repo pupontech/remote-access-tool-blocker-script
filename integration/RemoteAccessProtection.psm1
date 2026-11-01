@@ -154,7 +154,7 @@ function Invoke-RemoteAccessProtectionInstaller {
 
     $quotedInstaller = '"{0}"' -f $installer
     $quotedPolicyDir = '"{0}"' -f $policyDir
-    $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $quotedInstaller, '-Mode', $Mode, '-PolicyDir', $quotedPolicyDir)
+    $arguments = @('-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-File', $quotedInstaller, '-Mode', $Mode, '-PolicyDir', $quotedPolicyDir)
     if ($Mode -eq 'Enforce') { $arguments += @('-Variant', $script:AllBlockedVariant) }
     $argumentLine = $arguments -join ' '
     $process = Start-Process -FilePath $script:WindowsPowerShellPath -ArgumentList $argumentLine -Wait -PassThru -NoNewWindow
@@ -221,7 +221,7 @@ function New-RemoteAccessProtectionShortcut {
         $shortcutPath = Join-Path $desktop ($control.Name + '.lnk')
         $shortcut = $shell.CreateShortcut($shortcutPath)
         $shortcut.TargetPath = $script:WindowsPowerShellPath
-        $shortcut.Arguments = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Action {1}' -f $ControllerPath, $control.Action
+        $shortcut.Arguments = '-NoProfile -STA -ExecutionPolicy Bypass -File "{0}" -Action {1}' -f $ControllerPath, $control.Action
         $shortcut.WorkingDirectory = $InstallRoot
         $shortcut.Description = $control.Description
         $shortcut.IconLocation = $script:WindowsPowerShellPath + ',0'
