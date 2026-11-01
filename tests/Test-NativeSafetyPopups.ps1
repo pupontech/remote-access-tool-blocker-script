@@ -153,7 +153,9 @@ function Step { param([string]$Message) if($stepLog){ [IO.File]::AppendAllText($
 trap {
  $detail=$_.Exception.ToString()+[Environment]::NewLine+$_.InvocationInfo.PositionMessage
  try{ [IO.File]::WriteAllText($env:RATB_PROBE_ERROR,$detail) }catch{}
- Step ('FAILED: '+$detail)
+ Step ('FAILED-LINE: '+(($_.InvocationInfo.Line -replace '\s+',' ').Trim()))
+ Step ('FAILED-TARGET: '+$(if($_.TargetObject){$_.TargetObject.GetType().FullName}else{'none'}))
+ Step ('FAILED: '+$_.Exception.Message)
  exit 1
 }
 Step 'start'

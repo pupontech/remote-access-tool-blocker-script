@@ -255,8 +255,8 @@ function New-RemoteAccessSafetyDialog {
         $alignValues[$code] = if ($isRtl) { [System.Drawing.ContentAlignment]::MiddleRight } else { [System.Drawing.ContentAlignment]::MiddleLeft }
         $flowValues[$code] = if ($isRtl) { [System.Windows.Forms.FlowDirection]::RightToLeft } else { [System.Windows.Forms.FlowDirection]::LeftToRight }
     }
-    $directionControls = @($header, $warningBox, $footer, $buttons, $languageLabel, $languageCombo, $phraseLabel, $instruction, $inputBox) | Where-Object { $null -ne $_ }
-    $alignedLabels = @($languageLabel, $phraseLabel, $instruction) | Where-Object { $null -ne $_ }
+    $alignLeft = $alignValues['en']
+    $alignRight = $alignValues['he']
 
     $applyLanguage = {
         param([string]$selectedLanguage)
@@ -280,12 +280,17 @@ function New-RemoteAccessSafetyDialog {
             $tag.YesButton.Enabled = $true
         }
         # RightToLeftLayout is deliberately NOT assigned: on a visible form it re-creates the
-        # window handle, which can throw inside the change handler. Per-control RightToLeft
-        # plus a reversed button flow gives the same reading direction without rebuilding it.
+        # window handle, which can throw inside the change handler. Setting RightToLeft on the
+        # form propagates to its children, and the flow panel and label alignment are set
+        # explicitly because neither inherits the reading direction.
         $form.RightToLeft = $rtlValues[$selectedLanguage]
-        foreach ($control in $directionControls) { $control.RightToLeft = $rtlValues[$selectedLanguage] }
-        foreach ($label in $alignedLabels) { $label.TextAlign = $alignValues[$selectedLanguage] }
         $buttons.FlowDirection = $flowValues[$selectedLanguage]
+        $alignment = if ($selectedLanguage -eq 'he') { $alignRight } else { $alignLeft }
+        $tag.LanguageLabel.TextAlign = $alignment
+        if ($tag.RequiresPhrase) {
+            $tag.PhraseLabel.TextAlign = $alignment
+            $tag.Instruction.TextAlign = $alignment
+        }
     }.GetNewClosure()
 
     $languageCombo.add_SelectedIndexChanged({
