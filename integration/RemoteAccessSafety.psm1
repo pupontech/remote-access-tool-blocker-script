@@ -84,34 +84,6 @@ function Test-RemoteAccessSafetyPhrase {
     }
 }
 
-function Set-RemoteAccessSafetyDirection {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)][object]$Form,
-        [Parameter(Mandatory = $true)][ValidateSet('en', 'he')][string]$Language
-    )
-
-    # RightToLeftLayout is deliberately NOT assigned: on a form that is already visible it
-    # re-creates the window handle, which can throw inside the change handler. Per-control
-    # RightToLeft plus an explicit button flow direction gives the same RTL result safely.
-    $rightToLeft = if ($Language -eq 'he') { [System.Windows.Forms.RightToLeft]::Yes } else { [System.Windows.Forms.RightToLeft]::No }
-    $align = if ($Language -eq 'he') { [System.Drawing.ContentAlignment]::MiddleRight } else { [System.Drawing.ContentAlignment]::MiddleLeft }
-    $Form.RightToLeft = $rightToLeft
-    foreach ($control in $Form.Tag.DirectionControls) {
-        if ($null -ne $control) { $control.RightToLeft = $rightToLeft }
-    }
-    foreach ($label in $Form.Tag.AlignedLabels) {
-        if ($null -ne $label) { $label.TextAlign = $align }
-    }
-    if ($null -ne $Form.Tag.ButtonPanel) {
-        $Form.Tag.ButtonPanel.FlowDirection = if ($Language -eq 'he') {
-            [System.Windows.Forms.FlowDirection]::RightToLeft
-        } else {
-            [System.Windows.Forms.FlowDirection]::LeftToRight
-        }
-    }
-}
-
 function New-RemoteAccessSafetyDialog {
     [CmdletBinding()]
     param(
@@ -128,6 +100,7 @@ function New-RemoteAccessSafetyDialog {
     }
     $catalogValue = Get-RemoteAccessSafetyCatalog -Catalog $Catalog
     $requiresPhrase = $Stage -eq 1
+    $stageIndex = $Stage - 1
 
     $form = New-Object System.Windows.Forms.Form
     $form.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
@@ -152,7 +125,6 @@ function New-RemoteAccessSafetyDialog {
 
     $languageLabel = New-Object System.Windows.Forms.Label
     $languageLabel.AutoSize = $true
-    $languageLabel.Anchor = [System.Windows.Forms.AnchorStyles]::Left
     $languageCombo = New-Object System.Windows.Forms.ComboBox
     $languageCombo.AccessibleName = 'SafetyLanguage'
     $languageCombo.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
@@ -236,53 +208,84 @@ function New-RemoteAccessSafetyDialog {
     $form.CancelButton = $cancelButton
 
     $tag = [pscustomobject]@{
-        Language          = ''
-        RequiredPhrase    = ''
-        Approved          = [bool]$false
-        RequiresPhrase    = $requiresPhrase
-        Stage             = $Stage
-        Catalog           = $catalogValue
-        Form              = $form
-        YesButton         = $yesButton
-        NoButton          = $noButton
-        CancelButton      = $cancelButton
-        LanguageCombo     = $languageCombo
-        LanguageLabel     = $languageLabel
-        InputBox          = $inputBox
-        Instruction       = $instruction
-        PhraseLabel       = $phraseLabel
-        WarningBox        = $warningBox
-        ButtonPanel       = $buttons
-        DirectionControls = @($header, $warningBox, $footer, $buttons, $languageLabel, $languageCombo, $phraseLabel, $instruction, $inputBox)
-        AlignedLabels     = @($languageLabel, $phraseLabel, $instruction)
+        Language       = ''
+        RequiredPhrase = ''
+        Approved       = [bool]$false
+        RequiresPhrase = $requiresPhrase
+        Stage          = $Stage
+        Catalog        = $catalogValue
+        Form           = $form
+        YesButton      = $yesButton
+        NoButton       = $noButton
+        CancelButton   = $cancelButton
+        LanguageCombo  = $languageCombo
+        LanguageLabel  = $languageLabel
+        InputBox       = $inputBox
+        Instruction    = $instruction
+        PhraseLabel    = $phraseLabel
+        WarningBox     = $warningBox
+        ButtonPanel    = $buttons
     }
     $form.Tag = $tag
+
+    # Precompute both languages so the event handlers below only read captured values.
+    # A .GetNewClosure() script block runs in its own dynamic module, where module
+    # functions such as Set-RemoteAccessSafetyDirection are not resolvable.
+    $renderings = @{}
+    $rtlValues = @{}
+    $alignValues = @{}
+    $flowValues = @{}
+    foreach ($code in @('en', 'he')) {
+        $entry = $catalogValue.$code
+        $stageInfo = @($entry.Stages)[$stageIndex]
+        $lineFeed = [string][char]10
+        $warningText = ([string]$stageInfo.Warning).Replace([string]([char]13 + [char]10), $lineFeed)
+        $renderings[$code] = @{
+            Title         = [string]$entry.Title
+            LanguageLabel = [string]$entry.LanguageLabel
+            Warning       = $warningText.Replace($lineFeed, [Environment]::NewLine)
+            Yes           = [string]$entry.Yes
+            No            = [string]$entry.No
+            Cancel        = [string]$entry.Cancel
+            Instruction   = [string]$entry.Instruction
+            Phrase        = if ($requiresPhrase) { [string]$stageInfo.Phrase } else { '' }
+        }
+        $isRtl = $code -eq 'he'
+        $rtlValues[$code] = if ($isRtl) { [System.Windows.Forms.RightToLeft]::Yes } else { [System.Windows.Forms.RightToLeft]::No }
+        $alignValues[$code] = if ($isRtl) { [System.Drawing.ContentAlignment]::MiddleRight } else { [System.Drawing.ContentAlignment]::MiddleLeft }
+        $flowValues[$code] = if ($isRtl) { [System.Windows.Forms.FlowDirection]::RightToLeft } else { [System.Windows.Forms.FlowDirection]::LeftToRight }
+    }
+    $directionControls = @($header, $warningBox, $footer, $buttons, $languageLabel, $languageCombo, $phraseLabel, $instruction, $inputBox) | Where-Object { $null -ne $_ }
+    $alignedLabels = @($languageLabel, $phraseLabel, $instruction) | Where-Object { $null -ne $_ }
 
     $applyLanguage = {
         param([string]$selectedLanguage)
         if ($selectedLanguage -notin @('en', 'he')) { return }
-        $current = $tag.Catalog.$selectedLanguage
-        $stageInfo = @($current.Stages)[$tag.Stage - 1]
+        $text = $renderings[$selectedLanguage]
         $tag.Language = $selectedLanguage
-        $tag.RequiredPhrase = if ($tag.RequiresPhrase) { [string]$stageInfo.Phrase } else { '' }
+        $tag.RequiredPhrase = [string]$text.Phrase
         $tag.Approved = [bool]$false
-        $form.Text = '{0} ({1}/3)' -f $current.Title, $tag.Stage
-        $tag.LanguageLabel.Text = [string]$current.LanguageLabel
-        # WinForms text boxes need CRLF; the JSON catalog stores LF only, so paragraphs would merge.
-        $warningText = ([string]$stageInfo.Warning).Replace([string]([char]13 + [char]10), [string][char]10)
-        $tag.WarningBox.Text = $warningText.Replace([string][char]10, [Environment]::NewLine)
-        $tag.YesButton.Text = [string]$current.Yes
-        $tag.NoButton.Text = [string]$current.No
-        $tag.CancelButton.Text = [string]$current.Cancel
+        $form.Text = '{0} ({1}/3)' -f $text.Title, $tag.Stage
+        $tag.LanguageLabel.Text = $text.LanguageLabel
+        $tag.WarningBox.Text = $text.Warning
+        $tag.YesButton.Text = $text.Yes
+        $tag.NoButton.Text = $text.No
+        $tag.CancelButton.Text = $text.Cancel
         if ($tag.RequiresPhrase) {
-            $tag.PhraseLabel.Text = [string]$stageInfo.Phrase
-            $tag.Instruction.Text = [string]$current.Instruction
+            $tag.PhraseLabel.Text = $text.Phrase
+            $tag.Instruction.Text = $text.Instruction
             if ($null -ne $tag.InputBox) { $tag.InputBox.Clear() }
             $tag.YesButton.Enabled = $false
         } else {
             $tag.YesButton.Enabled = $true
         }
-        Set-RemoteAccessSafetyDirection -Form $form -Language $selectedLanguage
+        # RightToLeftLayout is deliberately NOT assigned: on a visible form it re-creates the
+        # window handle, which can throw inside the change handler. Per-control RightToLeft
+        # plus a reversed button flow gives the same reading direction without rebuilding it.
+        $form.RightToLeft = $rtlValues[$selectedLanguage]
+        foreach ($control in $directionControls) { $control.RightToLeft = $rtlValues[$selectedLanguage] }
+        foreach ($label in $alignedLabels) { $label.TextAlign = $alignValues[$selectedLanguage] }
+        $buttons.FlowDirection = $flowValues[$selectedLanguage]
     }.GetNewClosure()
 
     $languageCombo.add_SelectedIndexChanged({

@@ -76,9 +76,9 @@ try { & $moduleInfo { param($c) Get-RemoteAccessSafetyCatalog -Catalog $c } $bro
 Assert-True $threw 'A catalog that asks for a second phrase must be rejected.'
 
 $privateFunctions = & $moduleInfo {
-    Get-Command Get-RemoteAccessSafetyCatalog, New-RemoteAccessSafetyDialog, Show-RemoteAccessSafetyPrompt, Get-RemoteAccessSafetyPhrase, Set-RemoteAccessSafetyDirection -ErrorAction Stop
+    Get-Command Get-RemoteAccessSafetyCatalog, New-RemoteAccessSafetyDialog, Show-RemoteAccessSafetyPrompt, Get-RemoteAccessSafetyPhrase -ErrorAction Stop
 }
-Assert-True (@($privateFunctions).Count -eq 5) 'Required private helpers are missing.'
+Assert-True (@($privateFunctions).Count -eq 4) 'Required private helpers are missing.'
 
 # Crash guard: the dialog must never toggle RightToLeftLayout at runtime.
 $source = Get-Content -LiteralPath $modulePath -Raw

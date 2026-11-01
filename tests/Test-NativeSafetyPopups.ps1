@@ -26,6 +26,7 @@ public static class BilingualProbe {
  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
  [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr h);
  [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr h);
+ [DllImport("user32.dll")] public static extern IntPtr GetParent(IntPtr h);
  [DllImport("user32.dll")] public static extern int GetWindowLong(IntPtr h, int index);
  [StructLayout(LayoutKind.Sequential)] public struct Rect { public int Left,Top,Right,Bottom; }
  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out Rect r);
@@ -84,20 +85,33 @@ function Find-Control {
  }
  throw "Control not found in '$([BilingualProbe]::Title($Window))' class=$ClassLike text='$ExactText'"
 }
-function Get-Input { param([IntPtr]$Window) Find-Control $Window '*EDIT*' -SingleLineEdit }
+function Find-SingleLineEdit {
+ # A combo box can own an internal EDIT; only a standalone single-line box counts here.
+ param([IntPtr]$Window)
+ $deadline=[DateTime]::UtcNow.AddSeconds(15)
+ while([DateTime]::UtcNow -lt $deadline){
+  foreach($child in Get-Children $Window){
+   if([BilingualProbe]::Class($child) -notlike '*EDIT*'){ continue }
+   $style=[BilingualProbe]::GetWindowLong($child,-16)
+   if($style -band 0x4){ continue }
+   $parent=[BilingualProbe]::GetParent($child)
+   if($parent -ne [IntPtr]::Zero -and [BilingualProbe]::Class($parent) -like '*COMBOBOX*'){ continue }
+   return $child
+  }
+  Start-Sleep -Milliseconds 150
+ }
+ return [IntPtr]::Zero
+}
+function Get-Input {
+ param([IntPtr]$Window)
+ $handle=Find-SingleLineEdit $Window
+ if($handle -eq [IntPtr]::Zero){ throw "Input box not found in '$([BilingualProbe]::Title($Window))'" }
+ return $handle
+}
 function Get-Warning { param([IntPtr]$Window) Find-Control $Window '*EDIT*' -MultilineEdit }
 function Get-LanguageBox { param([IntPtr]$Window) Find-Control $Window '*COMBOBOX*' }
 function Get-Button { param([IntPtr]$Window,[string]$Text) Find-Control $Window '*BUTTON*' -ExactText $Text }
 function Get-InputText { param([IntPtr]$Window) [BilingualProbe]::Text((Get-Input $Window)) }
-function Find-SingleLineEdit {
- param([IntPtr]$Window)
- foreach($child in Get-Children $Window){
-  if([BilingualProbe]::Class($child) -notlike '*EDIT*'){ continue }
-  $style=[BilingualProbe]::GetWindowLong($child,-16)
-  if(-not ($style -band 0x4)){ return $child }
- }
- return [IntPtr]::Zero
-}
 function Set-InputText {
  param([IntPtr]$Window,[string]$Value)
  $input=Get-Input $Window
