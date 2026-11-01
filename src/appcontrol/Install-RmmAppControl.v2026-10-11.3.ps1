@@ -125,8 +125,11 @@ function Install-RevertTool {
     ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
     if (-not $safetySource) { throw 'Safety confirmation module missing; recovery cannot be installed.' }
     Copy-Item -LiteralPath $safetySource -Destination (Join-Path $InstallDir 'RemoteAccessSafety.psm1') -Force
+    $safetyCatalog = Join-Path (Split-Path $safetySource -Parent) 'RemoteAccessSafety.i18n.json'
+    if (-not (Test-Path -LiteralPath $safetyCatalog)) { throw 'Localized safety text missing; recovery cannot be installed.' }
+    Copy-Item -LiteralPath $safetyCatalog -Destination (Join-Path $InstallDir 'RemoteAccessSafety.i18n.json') -Force
     # 2. copy only the Windows App Control-only revert tool.
-    $copied = 1
+    $copied = 2
     $winOnly = @(Get-ChildItem -Path (Join-Path $revDir 'Revert-RemoteAccessBlock-WinOnly.v*.ps1') -File -ErrorAction SilentlyContinue)
     if ($winOnly.Count -eq 0) {
         Write-Log "No Windows-only revert script found - skipping the $InstallDir install."

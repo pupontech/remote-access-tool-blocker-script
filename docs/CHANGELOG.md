@@ -2,6 +2,14 @@
 
 Notable project changes. Historical dates refer to the versioning dates carried in script filenames.
 
+## 0.1.3-preview.1 — Hebrew/English warnings and typed approval
+
+- Add an English/Hebrew selector to the three native safety dialogs; translate warnings, labels, buttons, and required phrases. Use right-to-left Hebrew layout.
+- Keep Yes disabled until the displayed phrase is entered exactly in the selected language. Revalidate on click, clear input when switching language, and carry the choice into the next stage.
+- Keep blocking/setup free of typing. No, Cancel, and window close still refuse removal.
+- Package UTF-8 localized text alongside the ASCII PowerShell module, including installed recovery copies.
+- Verify both languages, wrong/other-language phrases, language-switch reset, RTL, and screenshots on Windows CI. Earlier policy/UAC/reboot/ACL limitations remain unchanged.
+
 ## 0.1.2-preview.1 — Direct blocking and native warning popups
 
 - Remove the typed BLOCK confirmation and keyboard pauses from the one-click blocking/setup path. Windows administrator consent remains required when needed.

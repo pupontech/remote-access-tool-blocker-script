@@ -11,7 +11,8 @@ def verify(archive, commit):
         ['git', 'ls-tree', '-r', '--name-only', commit], text=True
     ).splitlines()
     mapping = {'START-HERE.bat': 'kits/windows-only/START-HERE.bat',
-               'RemoteAccessSafety.psm1': 'integration/RemoteAccessSafety.psm1'}
+               'RemoteAccessSafety.psm1': 'integration/RemoteAccessSafety.psm1',
+               'RemoteAccessSafety.i18n.json': 'integration/RemoteAccessSafety.i18n.json'}
     for path in tracked:
         if path.startswith('policy/'):
             mapping[path] = path

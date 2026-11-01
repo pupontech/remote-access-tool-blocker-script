@@ -6,7 +6,7 @@ Blocking a support tool can sever remote access. Have a local recovery route and
 
 ## Download — testing preview, not production-ready
 
-[Download the Windows App Control script ZIP](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.2-preview.1/remote-access-tool-blocker-script-only-0.1.2-preview.zip) · [SHA-256 checksum](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.2-preview.1/remote-access-tool-blocker-script-only-0.1.2-preview.zip.sha256) · [Release notes](https://github.com/pupontech/remote-access-tool-blocker-script/releases/tag/v0.1.2-preview.1)
+[Download the Windows App Control script ZIP](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.3-preview.1/remote-access-tool-blocker-script-only-0.1.3-preview.zip) · [SHA-256 checksum](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.3-preview.1/remote-access-tool-blocker-script-only-0.1.3-preview.zip.sha256) · [Release notes](https://github.com/pupontech/remote-access-tool-blocker-script/releases/tag/v0.1.3-preview.1)
 
 This is a **Windows PowerShell script package**, not an EXE installer or antivirus. It installs Windows App Control rules to block new starts of covered remote-access software and adds separate **Allow Remote Access** and **Block Remote Access** desktop shortcuts. **There is no ESET integration, website filtering, or software removal in this repository.** The download contains the scripts, compiled policy variants, Windows-only emergency recovery, and `HANDOFF-FOR-IMPLEMENTING-AGENT.md` for embedding it into another script. The optional GUI kit in the source tree is not part of this script-only ZIP.
 
@@ -21,7 +21,17 @@ This is a **Windows PowerShell script package**, not an EXE installer or antivir
 
 Remote access can let someone see your screen, steal files and passwords, or take money. **An unexpected caller claiming to be Microsoft, your bank, a government office, or technical support is not proof of identity. Caller ID can be faked.** Hang up. Independently find the organisation's official number on a trusted website, your bill, or the back of your card, and dial it yourself. Do not use a number or link the caller supplies, or a search advertisement. Never share passwords or one-time codes, and do not use banking while someone is connected.
 
-Allowing access displays three native Windows warning popups: independently verifying the person, understanding the risk, and final permission to allow remote access. Each offers **Yes / No / Cancel**, with **No** selected by default. Only explicitly choosing **Yes on all three** permits removal. No typing is required.
+Allowing access displays three native Windows warning dialogs with an **English / עברית** selector. The warning text, buttons, and required phrase change together; Hebrew uses right-to-left layout. Your choice carries through all three stages.
+
+**Yes stays disabled until the displayed phrase is typed exactly in the selected language.** Switching language clears the entry and disables Yes again. English is case-sensitive; extra spaces and the other language's phrase do not count.
+
+| Stage | English phrase | Hebrew phrase |
+|---|---|---|
+| Verify the person | `I VERIFIED THE PERSON` | `אימתתי את זהות האדם` |
+| Understand the risk | `I UNDERSTAND THE RISK` | `אני מבין את הסיכון` |
+| Final approval | `ALLOW REMOTE ACCESS` | `אני מאשר גישה מרחוק` |
+
+Each dialog offers **Yes / No / Cancel** (Hebrew: **כן / לא / ביטול**). No remains the safe default. Only clicking Yes after entering the matching phrase at all three stages permits removal. **Blocking still requires no typing.**
 
 Choosing No, Cancel, or closing a popup leaves the policy unchanged. These prompts ask **you** to verify the person; the tool cannot verify their identity. Removing this block does not itself start a support session or make a caller trustworthy.
 

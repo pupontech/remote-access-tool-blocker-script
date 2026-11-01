@@ -28,14 +28,16 @@ try {
         [IO.File]::WriteAllText((Join-Path $InstallDir $obsolete), 'old installed variant')
         [IO.File]::WriteAllText((Join-Path $source 'eset-remove-guide.txt'), 'must never be copied')
         [IO.File]::WriteAllText((Join-Path $ScriptRootHere 'RemoteAccessSafety.psm1'), 'fixture safety module')
+        [IO.File]::WriteAllText((Join-Path $ScriptRootHere 'RemoteAccessSafety.i18n.json'), 'fixture localized warnings')
         $script:Messages = @()
         Install-RevertTool
         if ((Get-Content -LiteralPath (Join-Path $InstallDir $winName) -Raw) -ne 'fixture Windows recovery') { throw 'Wrong recovery payload' }
         if (-not (Test-Path -LiteralPath (Join-Path $InstallDir 'Allow Remote Access.bat'))) { throw 'Named Allow Remote Access recovery launcher missing.' }
         if ((Get-Content -LiteralPath (Join-Path $InstallDir 'RemoteAccessSafety.psm1') -Raw) -ne 'fixture safety module') { throw 'Safety module was not installed with recovery.' }
+        if ((Get-Content -LiteralPath (Join-Path $InstallDir 'RemoteAccessSafety.i18n.json') -Raw) -ne 'fixture localized warnings') { throw 'Localized warnings were not installed with recovery.' }
         if (Test-Path -LiteralPath (Join-Path $InstallDir $obsolete)) { throw 'Obsolete full recovery survived' }
         if (Test-Path -LiteralPath (Join-Path $InstallDir 'docs/eset-remove-guide.txt')) { throw 'Website guide copied' }
-        if (-not ($script:Messages -match '3 item\(s\) copied')) { throw "Wrong recovery copy count: $($script:Messages -join '; ')" }
+        if (-not ($script:Messages -match '4 item\(s\) copied')) { throw "Wrong recovery copy count: $($script:Messages -join '; ')" }
         Write-Host "PASS: $layout layout copies only Windows recovery and replaces the old variant."
     }
 } finally {

@@ -6,14 +6,16 @@ import argparse
 import csv
 import hashlib
 import io
+import json
 import re
 import subprocess
 import sys
 import zipfile
 from pathlib import Path, PurePosixPath
+from typing import NoReturn
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> NoReturn:
     raise SystemExit(f"FAIL: {message}")
 
 
@@ -44,6 +46,7 @@ def main() -> int:
             "Invoke-RemoteAccessProtection.ps1",
             "RemoteAccessProtection.psm1",
             "RemoteAccessSafety.psm1",
+            "RemoteAccessSafety.i18n.json",
             "Start-Here.ps1",
             "START-HERE.bat",
             "Allow Remote Access.bat",
@@ -65,6 +68,24 @@ def main() -> int:
         missing = sorted(required - set(names))
         if missing:
             fail(f"required members missing: {', '.join(missing)}")
+
+        try:
+            catalog = json.loads(zf.read("RemoteAccessSafety.i18n.json").decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError) as error:
+            fail(f"localized warning catalog is not valid UTF-8 JSON: {error}")
+        fields = ("LanguageName", "Title", "Yes", "No", "Cancel", "LanguageLabel", "Instruction")
+        for language in ("en", "he"):
+            entry = catalog.get(language, {})
+            if any(not isinstance(entry.get(field), str) or not entry[field].strip() for field in fields):
+                fail(f"missing localized dialog labels for {language}")
+            stages = entry.get("Stages")
+            if not isinstance(stages, list) or len(stages) != 3:
+                fail(f"expected three localized warning stages for {language}")
+            for stage in stages:
+                if any(not isinstance(stage.get(field), str) or not stage[field].strip() for field in ("Warning", "Phrase")):
+                    fail(f"missing localized warning/phrase for {language}")
+                if language == "he" and any(not any(0x0590 <= ord(c) <= 0x05FF for c in stage[field]) for field in ("Warning", "Phrase")):
+                    fail("Hebrew warnings and phrases must contain Hebrew text")
 
         installers = [n for n in names if re.fullmatch(r"Install-RmmAppControl\.v[^/]+\.ps1", n)]
         reverts = [n for n in names if re.fullmatch(r"Revert-RemoteAccessBlock-WinOnly\.v[^/]+\.ps1", n)]
@@ -154,6 +175,7 @@ def main() -> int:
             "Invoke-RemoteAccessProtection.ps1": "integration/Invoke-RemoteAccessProtection.ps1",
             "RemoteAccessProtection.psm1": "integration/RemoteAccessProtection.psm1",
             "RemoteAccessSafety.psm1": "integration/RemoteAccessSafety.psm1",
+            "RemoteAccessSafety.i18n.json": "integration/RemoteAccessSafety.i18n.json",
             "Start-Here.ps1": "integration/Start-Here.ps1",
             "START-HERE.bat": "integration/START-HERE.bat",
             "Allow Remote Access.bat": "integration/Allow Remote Access.bat",

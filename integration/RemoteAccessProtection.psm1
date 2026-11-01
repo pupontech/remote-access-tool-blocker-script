@@ -64,6 +64,7 @@ function Resolve-RemoteAccessProtectionSource {
         Controller = Join-Path $moduleRoot 'Invoke-RemoteAccessProtection.ps1'
         Module = Join-Path $moduleRoot 'RemoteAccessProtection.psm1'
         SafetyModule = Join-Path $moduleRoot 'RemoteAccessSafety.psm1'
+        SafetyCatalog = Join-Path $moduleRoot 'RemoteAccessSafety.i18n.json'
     }
 }
 
@@ -282,7 +283,7 @@ function Install-RemoteAccessProtection {
 
     $controllerSource = $source.Controller
     $moduleSource = $source.Module
-    foreach ($path in @($controllerSource, $moduleSource, $source.SafetyModule, $source.Installer, $source.RevertScript, $source.RevertBatch)) {
+    foreach ($path in @($controllerSource, $moduleSource, $source.SafetyModule, $source.SafetyCatalog, $source.Installer, $source.RevertScript, $source.RevertBatch)) {
         if (-not (Test-Path -LiteralPath $path)) { throw "Required integration asset missing: $path" }
         $destination = Join-Path $InstallRoot (Split-Path $path -Leaf)
         if ([System.IO.Path]::GetFullPath($path) -ne [System.IO.Path]::GetFullPath($destination)) {
