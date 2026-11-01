@@ -14,6 +14,20 @@ An optional second layer adds the tools' **websites** (download pages and web co
 
 ---
 
+## Script-only integration (no GUI)
+
+For embedding into another Windows PowerShell script, use `integration/RemoteAccessProtection.psm1` and
+[`docs/script-integration-handoff.md`](docs/script-integration-handoff.md), or build the standalone
+`remote-access-tool-blocker-script-only-<version>-preview.zip` from a clean committed checkout with `./build/build-script-integration.sh`. Its default install enforces `T1A1S1R1` (TeamViewer,
+AnyDesk, Splashtop and RustDesk blocked), then places a **Remote access protection** toggle on the shared desktop.
+The icon toggles protection; turning it off requires UAC approval and typing `UNBLOCK`. It removes only
+this project's policy, not unrelated App Control policies. There is no full GUI, scheduled task or automatic
+unblock in this path. Older Windows builds may require a restart after either transition.
+
+This script-only default is distinct from the full-kit GUI's per-tool checkboxes below. Coverage is limited to the remote-access tools represented in the checked-in policy; unknown/unsigned tools and the inherited optional dual-use signer tier may not be covered. That optional tier is excluded because some publishers also sign legitimate products. Blocking can cut off a remote support session, so deploy with a local recovery path available.
+
+---
+
 ## What it does
 
 There are three independent protection layers. Use whichever fit the PC you are working on.
@@ -44,7 +58,7 @@ They are independent — run either one, or both. Neither needs the other.
    - `full-kit-eset-<version>.zip` — both programs, as folders `1` and `2`.
 2. Extract it anywhere on the PC. Keep the folders together — the launchers find the scripts relative to themselves.
 3. **Program 1:** open folder **`1`**, double-click **`START-HERE.bat`** and accept the administrator prompt.
-4. **TeamViewer / AnyDesk / Splashtop / RustDesk start unticked** (allowed) on a fresh PC. Ticked = blocked. An existing program policy still loads its installed choices.
+4. **Program 1 defaults to TeamViewer, AnyDesk and RustDesk blocked; Splashtop is allowed** (`T1A1S0R1`) on a fresh PC. Ticked = blocked. An existing program policy still loads its installed choices.
 5. Press **BLOCK**.
 6. **Program 2 (only if the PC runs ESET):** open folder **`2`**, double-click **`START-HERE.bat`**, press
    **BUILD**, then **import the file into ESET BY HAND** — the program cannot do it and cannot verify it.
@@ -75,7 +89,7 @@ toggle is set to. **Refresh status** lists recent events: `[3077]` means a progr
 
 **Program 2 BUILD** writes one combined file, `eset-blocked-urls.txt`, opens its folder with the file selected, opens the list itself in Notepad alongside the instructions, and copies the **full file path** to the clipboard (not the list contents). The path is also printed in the window. **Open the list folder** reopens it without rebuilding.
 
-Both programs start with TeamViewer, AnyDesk, Splashtop and RustDesk unticked (allowed). Their checkboxes are independent. Program 1 loads installed choices when an existing policy is detected.
+Program 1's fresh-policy defaults are `T1A1S0R1` (TeamViewer, AnyDesk and RustDesk blocked; Splashtop allowed); it loads installed choices when an existing policy is detected. Program 2's website-list selections are separate and begin unchecked.
 
 **Review before import:** the combined list now includes previously optional AV-update, SaaS and VPN domains. Review optional-tier rows in `url-review.csv` and remove services the client needs from the import file. The protected-root and allow-domain safety filters remain active. There is no second optional import file.
 

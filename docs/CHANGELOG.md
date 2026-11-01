@@ -42,6 +42,19 @@ All notable changes to this project. Dates are the versioning dates carried in t
 
 ## Unreleased
 
+### Add a no-GUI, all-blocked script integration path
+
+- Add a PowerShell module and controller that another elevated script can call without loading either WinForms window.
+- Install in Enforce mode with `T1A1S1R1` by default, then create a shared-desktop on/off shortcut; unblocking requires UAC and typing `UNBLOCK`.
+- Clarify that the script-only preview defaults all four switchable tools blocked while the full-kit GUI retains its per-tool defaults.
+- Keep the action scoped to this project's fixed App Control policy GUID; include policy payload, attribution, emergency Windows-only revert, handoff guide and a separately named preview ZIP with an in-archive NOT-A-RELEASE warning.
+- Teach the revert launcher to prefer the full revert script and fall back to the Windows-only variant used by the script-only package.
+- Guard App Control paths against WOW64 redirection; the installed toggle relaunches through Sysnative, while direct module calls require a 64-bit host process on 64-bit Windows.
+- Prevent UAC elevation through user-writable package paths; Install/Enable require an already-elevated host, while only the protected Program Files desktop toggle self-elevates.
+- Add synthetic state-parser tests, script-only package byte-parity verification, and CI coverage. The preview ZIP is commit-pinned, refuses dirty trees and is not a release; CI does not install a WDAC policy on its Windows runners.
+
+Validation limits: portable parser/package checks do not prove a live Windows policy change, UAC prompt, desktop shortcut or restart behavior; these remain acceptance tests on a disposable Windows PC.
+
 ### Changed: every launcher a person double-clicks is now `START-HERE.bat`
 
 Each program's entry point was named after what it did (`Block-The-Programs.bat`,

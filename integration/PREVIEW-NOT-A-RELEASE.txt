@@ -1,0 +1,1 @@
+NOT A RELEASE. This preview contains unreleased script-only integration work and has not been validated on a live Windows endpoint. Use only on a disposable test PC with local recovery access. Do not publish or deploy it as the stable project release.

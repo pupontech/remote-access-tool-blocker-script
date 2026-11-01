@@ -9,14 +9,16 @@ rem This folder is installed to C:\RemoteAccessToolBlocker by the kit, so this l
 rem available on the PC without the original kit or any network access.
 setlocal
 set "TARGET="
-for /f "delims=" %%F in ('dir /b /o-n "%~dp0Revert-RemoteAccessBlock.v*.ps1" 2^>nul') do (
-    if not defined TARGET set "TARGET=%~dp0%%F"
-)
-if not defined TARGET (
-    echo No Revert-RemoteAccessBlock.v*.ps1 found next to this launcher.
+for /f "delims=" %%F in ('dir /b /o-n "%~dp0Revert-RemoteAccessBlock.v*.ps1" 2^>nul') do if not defined TARGET set "TARGET=%~dp0%%F"
+if defined TARGET goto target_found
+for /f "delims=" %%F in ('dir /b /o-n "%~dp0Revert-RemoteAccessBlock-WinOnly.v*.ps1" 2^>nul') do if not defined TARGET set "TARGET=%~dp0%%F"
+if not defined TARGET goto target_missing
+goto target_found
+:target_missing
+    echo No Revert-RemoteAccessBlock script found next to this launcher.
     pause
     exit /b 1
-)
+:target_found
 net session >nul 2>&1
 if errorlevel 1 (
     echo Asking for administrator rights ...

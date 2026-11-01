@@ -8,7 +8,8 @@
   -Mode Remove    uninstall the policy (fully gone after a restart)
   -Mode Status    show whether it is installed + recent block/audit events (default)
   -Variant T1A1S0R1 which toggles: T=TeamViewer A=AnyDesk S=Splashtop R=RustDesk, 1 = block, 0 = allow
-                  (uses policy\variants\RmmBlock-<Mode>-<Variant>.cip; omitted = default T1A1S0R1)
+                  (uses the matching policy variant; omitted = the policy root's default)
+                  (source/full-kit root default: T1A1S0R1; script-only preview root default: T1A1S1R1)
 
   Install/Remove need admin (Run-RmmAppControl.bat elevates). Uses CiTool.exe (Windows 11 22H2+); on older builds it
   copies the policy into %windir%\System32\CodeIntegrity\CiPolicies\Active and asks for a restart.
