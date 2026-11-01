@@ -55,7 +55,7 @@ rm -f "$ZIP_PATH" "$ZIP_PATH.sha256"
 )
 (
     cd "$DIST"
-    sha256sum "$ZIP_NAME" > "$ZIP_NAME.sha256"
+    "$PYTHON" -c 'import hashlib, pathlib, sys; p = pathlib.Path(sys.argv[1]); print(hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name)' "$ZIP_PATH" > "$ZIP_NAME.sha256"
 )
 "$PYTHON" "$ROOT/tests/verify-script-integration-package.py" "$ZIP_PATH" --source-root "$ROOT"
 sha256sum "$ZIP_PATH"
