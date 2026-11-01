@@ -2,7 +2,10 @@
 
 Notable project changes. Historical dates refer to the versioning dates carried in script filenames.
 
-## 2026.11.01.1 — Windows App Control only (preview)
+## 0.1.0-preview.1 — Windows App Control only (testing prerelease)
+
+- Replace the unpublished calendar-version preview label with semantic version 0.1.0, published only as prerelease `v0.1.0-preview.1`.
+- Include the operator README in the script-only ZIP, with download links, installation steps, and explicit known limitations.
 
 - Remove the website-list and HIPS generators, website GUI, antivirus-specific recovery scripts, experimental archive, and their tests and import guides.
 - Build only Windows App Control packages; recovery selects only the Windows-only variant.

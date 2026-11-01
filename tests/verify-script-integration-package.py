@@ -50,6 +50,7 @@ def main() -> int:
             "VERSION",
             "LICENSE",
             "NOTICE",
+            "README.md",
             "policy/RmmBlock-Enforce.cip",
             "policy/RmmBlock-Audit.cip",
             "policy/signers.csv",
@@ -155,6 +156,7 @@ def main() -> int:
             "VERSION": "VERSION",
             "LICENSE": "LICENSE",
             "NOTICE": "NOTICE",
+            "README.md": "README.md",
         }
         for name in installers:
             mappings[name] = f"src/appcontrol/{name}"

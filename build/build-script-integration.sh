@@ -39,7 +39,7 @@ cp "$ROOT/revert/Run-Revert.bat" "$STAGE/"
 cp "$ROOT/docs/script-integration-handoff.md" "$STAGE/HANDOFF-FOR-IMPLEMENTING-AGENT.md"
 cp "$ROOT/integration/PREVIEW-NOT-A-RELEASE.txt" "$STAGE/PREVIEW-NOT-A-RELEASE.txt"
 printf '%s\n' "$SOURCE_SHA" > "$STAGE/SOURCE-COMMIT.txt"
-cp "$ROOT/LICENSE" "$ROOT/NOTICE" "$ROOT/VERSION" "$STAGE/"
+cp "$ROOT/LICENSE" "$ROOT/NOTICE" "$ROOT/VERSION" "$ROOT/README.md" "$STAGE/"
 cp -R "$ROOT/policy/." "$STAGE/policy/"
 rm -f "$STAGE/policy/summary.txt"
 for mode in Enforce Audit; do
