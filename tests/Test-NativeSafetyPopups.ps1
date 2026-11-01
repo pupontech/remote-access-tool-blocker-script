@@ -174,7 +174,7 @@ $m=Get-Module RemoteAccessSafety
    if($null -eq $dialog.Tag.InputBox){ throw 'Stage 1 has no input box' }
    if(-not [object]::ReferenceEquals($dialog.AcceptButton,$dialog.Tag.NoButton)){ throw 'Default is not No' }
    if(-not [object]::ReferenceEquals($dialog.CancelButton,$dialog.Tag.CancelButton)){ throw 'Escape is not Cancel' }
-   $rtl=[Windows.Forms.RightToLeft]::RightToLeft -eq $dialog.RightToLeft
+   $rtl=$dialog.RightToLeft -eq [Windows.Forms.RightToLeft]::Yes
    if($rtl -ne ($language -eq 'he')){ throw "Stage 1 RTL does not match $language" }
   }finally{ $dialog.Dispose() }
   foreach($stage in 2,3){
@@ -185,7 +185,7 @@ $m=Get-Module RemoteAccessSafety
     if($null -ne $dialog.Tag.PhraseLabel){ throw "Stage $stage must not show a phrase label" }
     if(-not $dialog.Tag.YesButton.Enabled){ throw "Stage $stage must allow Yes without typing" }
     if(-not [object]::ReferenceEquals($dialog.AcceptButton,$dialog.Tag.NoButton)){ throw "Stage $stage default is not No" }
-    $rtl=[Windows.Forms.RightToLeft]::RightToLeft -eq $dialog.RightToLeft
+    $rtl=$dialog.RightToLeft -eq [Windows.Forms.RightToLeft]::Yes
     if($rtl -ne ($language -eq 'he')){ throw "Stage $stage RTL does not match $language" }
    }finally{ $dialog.Dispose() }
   }
