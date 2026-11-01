@@ -6,7 +6,7 @@ Blocking a support tool can sever remote access. Have a local recovery route and
 
 ## Download — testing preview, not production-ready
 
-[Download the Windows App Control script ZIP](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.3-preview.1/remote-access-tool-blocker-script-only-0.1.3-preview.zip) · [SHA-256 checksum](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.3-preview.1/remote-access-tool-blocker-script-only-0.1.3-preview.zip.sha256) · [Release notes](https://github.com/pupontech/remote-access-tool-blocker-script/releases/tag/v0.1.3-preview.1)
+[Download the Windows App Control script ZIP](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.4-preview.1/remote-access-tool-blocker-script-only-0.1.3-preview.zip) · [SHA-256 checksum](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.4-preview.1/remote-access-tool-blocker-script-only-0.1.3-preview.zip.sha256) · [Release notes](https://github.com/pupontech/remote-access-tool-blocker-script/releases/tag/v0.1.4-preview.1)
 
 This is a **Windows PowerShell script package**, not an EXE installer or antivirus. It installs Windows App Control rules to block new starts of covered remote-access software and adds separate **Allow Remote Access** and **Block Remote Access** desktop shortcuts. **There is no ESET integration, website filtering, or software removal in this repository.** The download contains the scripts, compiled policy variants, Windows-only emergency recovery, and `HANDOFF-FOR-IMPLEMENTING-AGENT.md` for embedding it into another script. The optional GUI kit in the source tree is not part of this script-only ZIP.
 
@@ -14,24 +14,25 @@ This is a **Windows PowerShell script package**, not an EXE installer or antivir
 
 1. Extract the entire ZIP; keep its scripts and `policy` folder together.
 2. On a disposable Windows 10/11 test PC, double-click **START-HERE.bat**. It applies blocking directly after any required Windows administrator approval. No typing or extra confirmation is needed.
-3. After setup, **Allow Remote Access** removes this project's blocking only after administrator approval and three native Windows anti-scam confirmation popups. The ZIP also includes `Allow Remote Access.bat`, which opens the installed control; run setup first.
+3. After setup, **Allow Remote Access** removes this project's blocking only after administrator approval, one typed sentence, and two further native Windows confirmations. The ZIP also includes `Allow Remote Access.bat`, which opens the installed control; run setup first.
 4. Use the desktop **Block Remote Access** shortcut to restore blocking. Close already-running remote tools before testing new launches. Restart when instructed.
 
 ### STOP: never give a stranger remote access
 
 Remote access can let someone see your screen, steal files and passwords, or take money. **An unexpected caller claiming to be Microsoft, your bank, a government office, or technical support is not proof of identity. Caller ID can be faked.** Hang up. Independently find the organisation's official number on a trusted website, your bill, or the back of your card, and dial it yourself. Do not use a number or link the caller supplies, or a search advertisement. Never share passwords or one-time codes, and do not use banking while someone is connected.
 
-Allowing access displays three native Windows warning dialogs with an **English / עברית** selector. The warning text, buttons, and required phrase change together; Hebrew uses right-to-left layout. Your choice carries through all three stages.
+Allowing access displays three native Windows warning dialogs with an **English / עברית** selector. The warning text, buttons and required sentence change together, and switching language keeps the window alive instead of rebuilding it. Your language choice carries through all three dialogs.
 
-**Yes stays disabled until the displayed phrase is typed exactly in the selected language.** Switching language clears the entry and disables Yes again. English is case-sensitive; extra spaces and the other language's phrase do not count.
+**Only the first dialog asks you to type, and only one sentence.** Type it exactly, in the language currently shown, and Yes unlocks:
 
-| Stage | English phrase | Hebrew phrase |
-|---|---|---|
-| Verify the person | `I VERIFIED THE PERSON` | `אימתתי את זהות האדם` |
-| Understand the risk | `I UNDERSTAND THE RISK` | `אני מבין את הסיכון` |
-| Final approval | `ALLOW REMOTE ACCESS` | `אני מאשר גישה מרחוק` |
+| Language | Sentence to type |
+|---|---|
+| English | `I checked this person myself and I trust them` |
+| עברית | `בדקתי את האדם הזה בעצמי ואני סומך עליו` |
 
-Each dialog offers **Yes / No / Cancel** (Hebrew: **כן / לא / ביטול**). No remains the safe default. Only clicking Yes after entering the matching phrase at all three stages permits removal. **Blocking still requires no typing.**
+Switching language on that dialog clears the box and locks Yes again, so a sentence typed in one language never unlocks the other. Matching is case-sensitive and extra spaces do not count.
+
+The second and third dialogs ask **nothing** to be typed — they are plain **Yes / No / Cancel** confirmations (Hebrew: **כן / לא / ביטול**). **No** is the default button on every dialog, so pressing Enter accepts nothing. **Blocking still requires no typing at all.**
 
 Choosing No, Cancel, or closing a popup leaves the policy unchanged. These prompts ask **you** to verify the person; the tool cannot verify their identity. Removing this block does not itself start a support session or make a caller trustworthy.
 
@@ -39,7 +40,7 @@ Choosing No, Cancel, or closing a popup leaves the policy unchanged. These promp
 
 ## Primary integration: no-GUI desktop toggle
 
-For embedding in another Windows PowerShell script, see [`docs/script-integration-handoff.md`](docs/script-integration-handoff.md). The integration path creates the shared-desktop **Allow Remote Access** and **Block Remote Access** controls before enforcing **T1A1S1R1** (TeamViewer, AnyDesk, Splashtop, and RustDesk blocked). Disabling requires administrator approval and the three anti-scam confirmations; blocking reinstalls the policy. It removes only this project's fixed policy ID. There is no full application window, scheduled task, service, or automatic unblock; the allow warnings use native Windows popups.
+For embedding in another Windows PowerShell script, see [`docs/script-integration-handoff.md`](docs/script-integration-handoff.md). The integration path creates the shared-desktop **Allow Remote Access** and **Block Remote Access** controls before enforcing **T1A1S1R1** (TeamViewer, AnyDesk, Splashtop, and RustDesk blocked). Disabling requires administrator approval, one typed sentence and two confirmations; blocking reinstalls the policy. It removes only this project's fixed policy ID. There is no full application window, scheduled task, service, or automatic unblock; the allow warnings use native Windows popups.
 
 Build the standalone preview package from a clean committed checkout:
 

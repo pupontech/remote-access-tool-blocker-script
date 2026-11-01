@@ -81,11 +81,23 @@ def main() -> int:
             stages = entry.get("Stages")
             if not isinstance(stages, list) or len(stages) != 3:
                 fail(f"expected three localized warning stages for {language}")
-            for stage in stages:
-                if any(not isinstance(stage.get(field), str) or not stage[field].strip() for field in ("Warning", "Phrase")):
-                    fail(f"missing localized warning/phrase for {language}")
-                if language == "he" and any(not any(0x0590 <= ord(c) <= 0x05FF for c in stage[field]) for field in ("Warning", "Phrase")):
-                    fail("Hebrew warnings and phrases must contain Hebrew text")
+            for index, stage in enumerate(stages):
+                warning = stage.get("Warning")
+                phrase = stage.get("Phrase")
+                if not isinstance(warning, str) or not warning.strip():
+                    fail(f"missing localized warning for {language} stage {index + 1}")
+                # The owner asked for exactly one typed sentence, on the first dialog only.
+                if index == 0:
+                    if not isinstance(phrase, str) or not phrase.strip():
+                        fail(f"stage 1 must require a typed sentence for {language}")
+                    if language == "he" and not any(0x0590 <= ord(c) <= 0x05FF for c in phrase):
+                        fail("the Hebrew stage-1 sentence must contain Hebrew text")
+                elif phrase is not None:
+                    fail(f"stage {index + 1} must not require typing for {language}")
+                if language == "he" and not any(0x0590 <= ord(c) <= 0x05FF for c in warning):
+                    fail("Hebrew warnings must contain Hebrew text")
+            if stages[0].get("Phrase") in (stages[1].get("Warning"), stages[2].get("Warning")):
+                fail("the typed sentence must not be reused as warning text")
 
         installers = [n for n in names if re.fullmatch(r"Install-RmmAppControl\.v[^/]+\.ps1", n)]
         reverts = [n for n in names if re.fullmatch(r"Revert-RemoteAccessBlock-WinOnly\.v[^/]+\.ps1", n)]
@@ -138,6 +150,11 @@ def main() -> int:
         missing_tiers = sorted({f"toggle-{key}" for key in "TASR"} - signer_tiers)
         if missing_tiers:
             fail(f"all-blocked policy is missing switchable signer tiers: {missing_tiers}")
+        safety = zf.read("RemoteAccessSafety.psm1")
+        if re.search(rb"\.RightToLeftLayout\s*=", safety):
+            fail("safety dialogs must not assign RightToLeftLayout; it re-creates the window handle")
+        if b"Read-Host" in safety:
+            fail("safety dialogs must never fall back to console input")
         module = zf.read("RemoteAccessProtection.psm1")
         entry = zf.read("Invoke-RemoteAccessProtection.ps1")
         for member, data in (("RemoteAccessProtection.psm1", module), ("Invoke-RemoteAccessProtection.ps1", entry)):
