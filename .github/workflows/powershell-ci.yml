@@ -1,259 +1,86 @@
 name: powershell-ci
 
-# Static gates only: parse, ASCII/no-BOM and CRLF. Nothing here installs a policy.
+# Static/synthetic gates only: never installs an App Control policy on a runner.
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  static:
-    name: parse + encoding (${{ matrix.os }})
+  windows-only:
+    name: Windows App Control (${{ matrix.shell }})
     strategy:
       fail-fast: false
       matrix:
-        os: [ windows-latest ]
-        shell: [ pwsh, powershell ]
-    runs-on: ${{ matrix.os }}
+        shell: [pwsh, powershell]
+    runs-on: windows-latest
     defaults:
       run:
         shell: ${{ matrix.shell }}
     steps:
       - uses: actions/checkout@v4
-
       - name: Print engine version
         run: $PSVersionTable | Out-String
-
-      # Warns when this runs on Windows PowerShell 5.1 with a file that is not
-      # pure ASCII (PS 5.1 reads BOM-less non-ASCII as Windows-1252 and mangles it).
-      - name: Parse check every PowerShell source file
+      - name: Parse and encoding audit
         run: |
-          $bad = 0
-          Get-ChildItem -Path . -Recurse -File | Where-Object { $_.Extension -in '.ps1', '.psm1' } | Sort-Object FullName | ForEach-Object {
-            $rel = Resolve-Path -Relative $_.FullName
-            $tokens = $null; $errors = $null
-            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
-            if ($errors.Count -gt 0) {
-              $bad++
-              Write-Host "::error file=$rel::parse failure: $($errors[0].Message) (line $($errors[0].Extent.StartLineNumber))"
-              $errors | Select-Object -First 5 | ForEach-Object { Write-Host "   line $($_.Extent.StartLineNumber): $($_.Message)" }
+          $ErrorActionPreference = 'Stop'
+          $files = @(Get-ChildItem -Recurse -File | Where-Object { $_.Extension -in '.ps1', '.psm1', '.bat' })
+          foreach ($f in $files) {
+            $bytes = [IO.File]::ReadAllBytes($f.FullName)
+            if (@($bytes | Where-Object { $_ -gt 127 -or ($_ -lt 32 -and $_ -notin 9,10,13) }).Count) {
+              throw "Non-ASCII/control byte in $($f.FullName)"
+            }
+            if ($f.Extension -eq '.bat') {
+              $text = [Text.Encoding]::ASCII.GetString($bytes)
+              if ($text.Replace("`r`n", '').Contains("`n")) { throw "Bare LF in $($f.Name)" }
             } else {
-              Write-Host "parse OK  $rel"
+              $tokens = $null; $errors = $null
+              [Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+              if ($errors.Count) { throw ($errors | Out-String) }
             }
           }
-          if ($bad -gt 0) { Write-Host "FAILED: $bad file(s) do not parse"; exit 1 }
-          Write-Host 'all PowerShell files parse'
-
-      # House rule: .ps1 must be pure ASCII with no BOM (PS 5.1 / Windows-1252).
-      # .bat must be pure ASCII, no BOM, CRLF only (cmd.exe's LF tolerance is undocumented).
-      # Also scans for control bytes < 32 other than tab/CR/LF - the class of bug that
-      # turned a path into 'policy<VT>ariants' when a script was edited via Python strings.
-      - name: Encoding / ASCII / CRLF audit
+      - name: Windows-only scope and integration regressions
         run: |
-          $fail = @()
-          function Get-ControlBytes([byte[]]$bytes) {
-            @($bytes | Where-Object { $_ -lt 32 -and $_ -notin 9, 10, 13 })
-          }
-          foreach ($f in (Get-ChildItem -Path . -Recurse -File | Where-Object { $_.Extension -in '.ps1', '.psm1' })) {
-            $rel = Resolve-Path -Relative $f.FullName
-            $b = [System.IO.File]::ReadAllBytes($f.FullName)
-            $nonAscii = @($b | Where-Object { $_ -gt 127 })
-            if ($nonAscii.Count -gt 0) { $fail += "${rel}: $($nonAscii.Count) non-ASCII byte(s)" }
-            if ($b.Length -ge 3 -and $b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF) { $fail += "${rel}: UTF-8 BOM" }
-            $ctl = Get-ControlBytes $b
-            if ($ctl.Count -gt 0) { $fail += "${rel}: control byte(s) $((($ctl | Select-Object -First 5) | ForEach-Object { '0x{0:X2}' -f $_ }) -join ',')" }
-          }
-          foreach ($f in (Get-ChildItem -Path . -Recurse -Filter '*.bat' -File)) {
-            $rel = Resolve-Path -Relative $f.FullName
-            $b = [System.IO.File]::ReadAllBytes($f.FullName)
-            $nonAscii = @($b | Where-Object { $_ -gt 127 })
-            if ($nonAscii.Count -gt 0) { $fail += "${rel}: $($nonAscii.Count) non-ASCII byte(s)" }
-            if ($b.Length -ge 3 -and $b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF) { $fail += "${rel}: UTF-8 BOM" }
-            $lf = ($b | Where-Object { $_ -eq 10 }).Count
-            $crlf = 0
-            for ($i = 0; $i -lt $b.Length - 1; $i++) { if ($b[$i] -eq 13 -and $b[$i + 1] -eq 10) { $crlf++ } }
-            if ($lf -ne $crlf) { $fail += "${rel}: $($lf - $crlf) bare LF line ending(s)" }
-            $ctl = Get-ControlBytes $b
-            if ($ctl.Count -gt 0) { $fail += "${rel}: control byte(s)" }
-          }
-          if ($fail.Count -gt 0) {
-            $fail | ForEach-Object { Write-Host "::error::$_" }
-            exit 1
-          }
-          Write-Host 'encoding audit clean'
-
-      # The kit launchers auto-detect the newest versioned script next to them; a
-      # mismatch between the .bat glob and the shipped filename breaks the
-      # double-click route silently, so assert the contract.
-      - name: Launcher / versioned-filename contract
+          python tests/test_windows_only_repository.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./tests/Test-ScriptIntegration.ps1
+          ./tests/Test-WindowsOnlyRecovery.ps1
+      - name: Policy inventory
         run: |
-          $fail = @()
-          $expect = @{
-            'kits/1/START-HERE.bat'                                   = 'Block-The-Programs.v*.ps1'
-            'kits/2/START-HERE.bat'                                   = 'Block-The-Websites.v*.ps1'
-            'kits/windows-only/START-HERE.bat'                        = 'Remote-Tools-Block-Windows.v*.ps1'
-            'src/appcontrol/Run-RmmAppControl.bat'                    = 'Install-RmmAppControl.v*.ps1'
-            'src/eset/Run-LolrmmUrlList.bat'                          = 'Get-LolrmmUrlList.v*.ps1'
-            'src/eset/Run-LolrmmHipsList.bat'                         = 'Get-LolrmmHipsList.v*.ps1'
-            'revert/Run-Revert.bat'                                   = 'Revert-RemoteAccessBlock.v*.ps1'
-          }
-          foreach ($bat in $expect.Keys) {
-            if (-not (Test-Path $bat)) { $fail += "${bat}: missing"; continue }
-            $text = Get-Content -Raw $bat
-            if ($text -notlike "*$($expect[$bat])*") {
-              $fail += "${bat}: does not reference '$($expect[$bat])'"
-            }
-            $dir = Split-Path $bat -Parent
-            if (-not (Get-ChildItem -Path $dir -Filter $expect[$bat] -File -ErrorAction SilentlyContinue)) {
-              $fail += "${bat}: no file matching '$($expect[$bat])' in $dir"
-            }
-          }
-          # the shared core must exist exactly once
-          foreach ($core in 'Build-RmmAppControl.v*.ps1', 'Install-RmmAppControl.v*.ps1') {
-            $found = @(Get-ChildItem -Path . -Recurse -Filter $core -File)
-            if ($found.Count -ne 1) { $fail += "${core}: expected exactly 1 copy, found $($found.Count)" }
-            else { Write-Host "$core -> $($found[0].FullName)" }
-          }
-          if ($fail.Count -gt 0) { $fail | ForEach-Object { Write-Host "::error::$_" }; exit 1 }
-          Write-Host 'launcher contract OK'
-
-      # The Windows-only kit must never contain the ESET-capable revert script or the ESET
-      # guide, and the full kit must carry exactly one variant of each kind. Shipping the
-      # ESET script to a Windows-only deployment tells the operator to un-block something
-      # that was never blocked.
-      - name: Revert-variant allocation contract
-        run: |
-          $fail = @()
-          $rev = @(Get-ChildItem -Path 'revert' -Filter '*.ps1' -File)
-          $winOnly = @($rev | Where-Object { $_.Name -match '-WinOnly\.v' })
-          $full    = @($rev | Where-Object { $_.Name -match 'Revert-RemoteAccessBlock\.v' })
-          Write-Host "revert variants: $($winOnly.Count) WinOnly, $($full.Count) full"
-          if ($winOnly.Count -ne 1) { $fail += "expected exactly 1 WinOnly variant, found $($winOnly.Count)" }
-          if ($full.Count -ne 1)    { $fail += "expected exactly 1 full variant, found $($full.Count)" }
-
-          # the WinOnly variant must not reference any ESET behaviour
-          foreach ($f in $winOnly) {
-            $text = Get-Content -Raw $f.FullName
-            foreach ($pat in 'egui\.exe', 'eset-remove-guide', 'LOLRMM-UrlList', 'LOLRMM-HipsList',
-                             'URL list management', 'List of blocked addresses',
-                             'potentially unsafe applications', 'eset-lists') {
-              if ($text -match $pat) { $fail += "$($f.Name): contains ESET behaviour /$pat/" }
-            }
-            # and it must still have a working dry run
-            if ($text -notmatch '\[switch\]\$WhatIf') { $fail += "$($f.Name): no explicit -WhatIf switch" }
-          }
-          # the full variant must still carry the ESET handling and the dry run
-          foreach ($f in $full) {
-            $text = Get-Content -Raw $f.FullName
-            if ($text -notmatch 'eset-remove-guide') { $fail += "$($f.Name): lost the ESET guide handling" }
-            if ($text -notmatch '\[switch\]\$WhatIf') { $fail += "$($f.Name): no explicit -WhatIf switch" }
-          }
-          # no generated variant may keep its region markers
-          foreach ($f in $rev) {
-            $text = Get-Content -Raw $f.FullName
-            if ($text -match '#region eset') { $fail += "$($f.Name): leftover generator marker" }
-          }
-          if ($fail.Count -gt 0) { $fail | ForEach-Object { Write-Host "::error::$_" }; exit 1 }
-          Write-Host 'revert-variant allocation OK'
-
-      # policy/ is generated output; a malformed policy would fail at install time
-      # on the user's PC, which is the worst place to find out.
-      - name: Policy inventory check
-        run: |
-          $variants = @(Get-ChildItem -Path 'policy/variants' -Filter '*.cip' -File)
-          Write-Host "variant .cip files: $($variants.Count) (expect 32)"
-          $missing = @()
+          $files = @(Get-ChildItem policy/variants -Filter '*.cip' -File)
+          if ($files.Count -ne 32) { throw 'Expected 32 compiled variants' }
           foreach ($mode in 'Enforce', 'Audit') {
-            foreach ($t in 0, 1) { foreach ($a in 0, 1) { foreach ($s in 0, 1) { foreach ($r in 0, 1) {
-              $name = "RmmBlock-$mode-T$t`A$a`S$s`R$r.cip"
-              if (-not (Test-Path "policy/variants/$name")) { $missing += $name }
+            foreach ($t in 0,1) { foreach ($a in 0,1) { foreach ($s in 0,1) { foreach ($r in 0,1) {
+              $name = 'RmmBlock-{0}-T{1}A{2}S{3}R{4}' -f $mode,$t,$a,$s,$r
+              foreach ($ext in 'cip','xml') {
+                if (-not (Test-Path -LiteralPath "policy/variants/$name.$ext")) { throw "Missing $name.$ext" }
+              }
             } } } }
           }
-          if ($missing.Count -gt 0) { $missing | ForEach-Object { Write-Host "::error::missing policy variant $_" }; exit 1 }
-          foreach ($f in 'policy/RmmBlock-Enforce.cip', 'policy/RmmBlock-Audit.cip', 'policy/signers.csv', 'policy/summary.txt') {
-            if (-not (Test-Path $f)) { Write-Host "::error::missing $f"; exit 1 }
-          }
-          # no policy XML may name a deployment-specific org (public repo: keep it neutral)
-          # built from parts on purpose: naming the literal here would defeat the check
-          $orgName = 'Rubin' + 'IT'
-          $bad = Select-String -Path 'policy/*.xml', 'policy/variants/*.xml' -Pattern $orgName -ErrorAction SilentlyContinue
-          if ($bad) { Write-Host "::error::deployment-specific name found in policy XML"; exit 1 }
-          Write-Host 'policy inventory OK'
-
-      # The full kit is two separate programs: folder 1 the App Control (program) blocker, folder 2 the
-      # ESET (website) list. build/build-release.sh is the single definition of that layout and asserts it on
-      # the real ZIP it produces, so the mapping cannot drift from the docs. This step runs that build.
-      # (bash is present on the Windows runners; the script only uses coreutils + zip.)
-      - name: Two-program split contract (build + assert)
+      - name: Build Windows-only packages
         shell: bash
         run: |
-          # zip is not preinstalled on windows-latest. If it is absent, install it rather than
-          # falling back to 7-Zip's incompatible modes.
           if ! command -v zip >/dev/null 2>&1; then
-            choco install zip -y --no-progress || true
+            choco install zip -y --no-progress
             export PATH="$PATH:/c/ProgramData/chocolatey/bin"
           fi
-          zip -v >/dev/null 2>&1 || { echo "::error::zip is unavailable on this runner"; exit 1; }
           ./build/build-release.sh
-
-      # A window writes output with Say(), which colours lines via $log.SelectionColor - a RichTextBox-only
-      # property. It shipped once against a plain TextBox, so the FIRST coloured line threw "The property
-      # 'SelectionColor' cannot be found on this object" and aborted the rest of the run: the clipboard copy,
-      # the folder open and the ESET launch never happened, and the failure looked like the ESET list was
-      # broken. Catch that class of mismatch statically.
-      - name: WinForms control contract (SelectionColor needs RichTextBox)
-        run: |
-          $fail = @()
-          foreach ($f in (Get-ChildItem -Path 'kits' -Recurse -Filter '*.ps1' -File)) {
-            $text = Get-Content -Raw $f.FullName
-            if ($text -notmatch 'SelectionColor') { continue }
-            if ($text -match 'New-Object\s+Windows\.Forms\.TextBox') {
-              $fail += "$($f.Name): uses a TextBox but sets SelectionColor (RichTextBox-only property)"
-            }
-            if ($text -notmatch 'New-Object\s+Windows\.Forms\.RichTextBox') {
-              $fail += "$($f.Name): sets SelectionColor but never creates a RichTextBox"
-            }
-            # the colouring must be non-load-bearing: losing it may not abort the run
-            if ($text -notmatch '(?s)if \(\$color\) \{\s*(?:#[^\r\n]*\s*)*try \{') {
-              $fail += "$($f.Name): the colour block is not wrapped in try/catch - a cosmetic failure can abort the run"
-            }
-          }
-          if ($fail.Count -gt 0) { $fail | ForEach-Object { Write-Host "::error::$_" }; exit 1 }
-          Write-Host 'winforms control contract OK'
-
-      - name: Release ZIP matches committed source bytes
+          ./build/build-script-integration.sh
+      - name: Verify GUI package against committed source
         run: |
           $version = (Get-Content -Raw VERSION).Trim()
-          python tests/verify-release-source.py "dist/full-kit-eset-$version.zip"
+          python tests/verify-release-source.py "dist/remote-tools-block-windows-$version.zip"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: ESET handoff and button-recovery regressions
-        run: |
-          ./tests/Test-EsetHandoff.ps1
-          ./tests/Test-EsetButtonRecovery.ps1
-
-      - name: Import workflow regressions (real WinForms and clipboard)
-        run: |
-          ./tests/Test-ImportWorkflow.ps1
-          ./tests/Test-ScriptIntegration.ps1
-
-      - name: Build standalone script-integration package
-        shell: bash
-        run: |
-          if ! command -v zip >/dev/null 2>&1; then
-            choco install zip -y --no-progress || true
-            export PATH="$PATH:/c/ProgramData/chocolatey/bin"
-          fi
-          zip -v >/dev/null 2>&1 || { echo "::error::zip is unavailable on this runner"; exit 1; }
-          ./build/build-script-integration.sh
-
-      - name: Upload test kit
+      - name: Upload Windows-only preview kits
         if: matrix.shell == 'pwsh'
         uses: actions/upload-artifact@v4
         with:
-          name: blocker-import-test-kit
+          name: windows-app-control-test-kits
           path: |
-            dist/full-kit-eset-*.zip*
+            dist/remote-tools-block-windows-*.zip*
             dist/remote-access-tool-blocker-script-only-*.zip*

@@ -1,11 +1,11 @@
-Remote-access tool blocker (Windows App Control + optional ESET list)
+Remote-access tool blocker (Windows App Control)
 Copyright 2026 the remote-access-tool-blocker contributors
 
 ================================================================================
 LOLRMM — attribution and license
 ================================================================================
 
-Substantial portions of the data in this repository are derived from LOLRMM:
+Some signer data in this repository is derived from LOLRMM:
 
     LOLRMM
     https://lolrmm.io
@@ -13,39 +13,20 @@ Substantial portions of the data in this repository are derived from LOLRMM:
     Licensed under the Apache License, Version 2.0
     https://github.com/magicsword-io/LOLRMM/blob/main/LICENSE
 
-Specifically, the following are DERIVED FROM LOLRMM data (the catalogue served at
-https://lolrmm.io/api/rmm_tools.json):
-
-  * policy/*.xml and policy/variants/*.xml
-      Windows App Control policies whose signer rules are computed from the
-      code-signing certificates LOLRMM publishes in
-      CodeSigning.certificates[].certificate_der_base64.
-
-  * policy/signers.csv, policy/skipped-signers.csv, policy/summary.txt
-      The generated rule inventory, produced from the same catalogue.
-
-  * the output of src/eset/Get-LolrmmUrlList.v*.ps1 and
-    src/eset/Get-LolrmmHipsList.v*.ps1
-      ESET website-block lists and HIPS path lists generated from the catalogue's
-      Artifacts.Network / Artifacts.InstallPaths fields.
-
-  * the vendor name, tool name, issuer and certificate-metadata columns carried in
-    the above files.
-
-The upstream catalogue file itself (rmm_tools.json) is NOT redistributed in this
-repository; it is downloaded at build time by src/appcontrol/Build-RmmAppControl.
-
-The catalogue this repository was built from is identified by hash in
-policy/summary.txt.
+In particular, policy XML files, signer inventories, and associated vendor and
+certificate metadata are derived from the catalogue's code-signing certificate
+data (`CodeSigning.certificates[].certificate_der_base64`). The catalogue file
+itself is not redistributed. The policy summary identifies the source catalogue
+by hash.
 
 ================================================================================
 RustDesk signing certificate — provenance
 ================================================================================
 
 The RustDesk code-signing certificate embedded in
-src/appcontrol/Build-RmmAppControl.v*.ps1 is NOT sourced from LOLRMM (which
-publishes no certificate data for RustDesk). It is a PUBLIC code-signing
-certificate, taken from the vendor's official Windows release:
+`src/appcontrol/Build-RmmAppControl.v*.ps1` is not sourced from LOLRMM, which
+publishes no certificate data for RustDesk. It is public certificate data taken
+from the vendor's official Windows release:
 
     subject CN       PURSLANE
     issuer           Sectigo EV Code Signing CA (R36)
@@ -54,25 +35,22 @@ certificate, taken from the vendor's official Windows release:
     source           rustdesk-1.5.0-x86_64.exe / rustdesk-1.5.0-x86-sciter.exe
                      (official RustDesk Windows build)
 
-A certificate is public information and is published here so that a rebuild needs
-no third-party download. No RustDesk binary or installer is included in this
-repository.
+No RustDesk binary or installer is included in this repository.
 
 ================================================================================
 Microsoft
 ================================================================================
 
-The App Control policies are built on Microsoft's example policy template
-%windir%\schemas\CodeIntegrity\ExamplePolicies\AllowAll.xml and follow the layout
-Microsoft documents for its recommended block rules. No Microsoft file is
-redistributed here.
+The App Control policies are based on Microsoft's example policy template
+`%windir%\\schemas\\CodeIntegrity\\ExamplePolicies\\AllowAll.xml` and follow
+the documented recommended block-rule layout. No Microsoft file is redistributed.
 
 ================================================================================
 Trademarks
 ================================================================================
 
-AnyDesk, TeamViewer, ScreenConnect, RustDesk, Splashtop, ESET, Microsoft,
-Windows, and every other product or vendor name in this repository are trademarks
-or registered trademarks of their respective owners. They are used here
-descriptively, to identify the software this project blocks. This project is not
-affiliated with, endorsed by, or supported by any of them.
+AnyDesk, TeamViewer, ScreenConnect, RustDesk, Splashtop, Microsoft, Windows, and
+every other product or vendor name in this repository are trademarks or
+registered trademarks of their respective owners. They are used descriptively to
+identify software the project may block. This project is not affiliated with,
+endorsed by, or supported by any of them.

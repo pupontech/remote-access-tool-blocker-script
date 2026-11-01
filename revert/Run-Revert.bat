@@ -1,5 +1,5 @@
 @echo off
-rem Self-elevating launcher for Revert-RemoteAccessBlock (auto-detects the newest .v*.ps1 next to it).
+rem Self-elevating launcher for the Windows App Control-only revert tool.
 rem   Run-Revert.bat                 undo the block on this PC (asks before it does anything)
 rem   Run-Revert.bat -WhatIf         dry run - show every step, change nothing
 rem   Run-Revert.bat -Restore        put a previously backed-up block back
@@ -9,8 +9,6 @@ rem This folder is installed to C:\RemoteAccessToolBlocker by the kit, so this l
 rem available on the PC without the original kit or any network access.
 setlocal
 set "TARGET="
-for /f "delims=" %%F in ('dir /b /o-n "%~dp0Revert-RemoteAccessBlock.v*.ps1" 2^>nul') do if not defined TARGET set "TARGET=%~dp0%%F"
-if defined TARGET goto target_found
 for /f "delims=" %%F in ('dir /b /o-n "%~dp0Revert-RemoteAccessBlock-WinOnly.v*.ps1" 2^>nul') do if not defined TARGET set "TARGET=%~dp0%%F"
 if not defined TARGET goto target_missing
 goto target_found

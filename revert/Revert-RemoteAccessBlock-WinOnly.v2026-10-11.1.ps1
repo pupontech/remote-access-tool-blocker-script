@@ -13,8 +13,7 @@
          - a machine summary (PC name, OS build, policy state, log tail)
     2. Removes the Windows App Control policy  (CiTool --remove-policy, or deletes the
        CiPolicies\Active file on builds without CiTool).  A restart finishes the unload.
-    3. That is everything: this deployment has no ESET layer, so there is no website list
-       to take back out.
+    3. The Windows App Control policy is removed.
 
   RESTORE
     1. Lists the dated backups, newest first.
@@ -45,7 +44,7 @@
 
 .EXAMPLE
   .\Revert-RemoteAccessBlock.bat
-      Interactive revert: back up, remove the policy. Nothing else to undo on this deployment.
+      Interactive revert: back up and remove the policy.
 
 .EXAMPLE
   .\Run-Revert.bat -WhatIf
@@ -57,8 +56,6 @@
 
 .NOTES
   Log: %ProgramData%\RemoteAccessToolBlocker\Revert.log (append-only, never deleted).
-  This build is the Windows App Control only variant: it does NOT touch ESET or any
-  ESET website list, because this deployment has no ESET layer installed by us.
 #>
 # -WhatIf is declared EXPLICITLY.
 #   [CmdletBinding()] alone does not provide it to a script (the switch fails to bind with

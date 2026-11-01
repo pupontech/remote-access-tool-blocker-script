@@ -137,11 +137,16 @@ if ($module -notmatch "Type UNBLOCK to remove this protection policy") {
 }
 
 $revertLauncher = Get-Content -Raw (Join-Path $repoRoot 'revert\Run-Revert.bat')
-$fullRevertIndex = $revertLauncher.IndexOf('Revert-RemoteAccessBlock.v*.ps1')
 $winOnlyRevertIndex = $revertLauncher.IndexOf('Revert-RemoteAccessBlock-WinOnly.v*.ps1')
-if ($fullRevertIndex -lt 0 -or $winOnlyRevertIndex -le $fullRevertIndex) {
-    throw 'Revert launcher must prefer the full variant, then fall back to the Windows-only variant.'
+if ($winOnlyRevertIndex -lt 0 -or $revertLauncher.Contains('Revert-RemoteAccessBlock.v*.ps1')) {
+    throw 'Revert launcher must select only the Windows-only variant.'
 }
+$installer = Get-Content -Raw (Join-Path $repoRoot 'src\appcontrol\Install-RmmAppControl.v2026-10-11.3.ps1')
+$winOnlyRevert = Get-Content -Raw (Join-Path $repoRoot 'revert\Revert-RemoteAccessBlock-WinOnly.v2026-10-11.1.ps1')
+if ($installer -match 'Revert-RemoteAccessBlock[.]v[+*?]' -or $installer -match 'eset-remove-guide|ESET website list|handles the ESET') {
+    throw 'App Control installer must copy only WinOnly revert and must not handle ESET guides.'
+}
+if ($winOnlyRevert -match 'ESET|website list') { throw 'WinOnly revert must not contain ESET-specific prose.' }
 if ($revertLauncher.Contains(":target_found`r`n)`r`n")) {
     throw 'Revert launcher has an orphaned closing parenthesis after its target label.'
 }
