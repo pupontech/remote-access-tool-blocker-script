@@ -100,32 +100,6 @@ function Assert-YesEnabled {
  $actual=[BilingualProbe]::IsWindowEnabled($yes)
  if($actual -ne $Expected){ throw "Yes enabled=$actual expected=$Expected ($Reason)" }
 }
-function Set-Language {
- param($Process,[int]$Stage,[IntPtr]$Window,[string]$Language,[string]$ExpectedTitle)
- $combo=Get-LanguageBox $Window
- $index=if($Language -eq 'he'){1}else{0}
- [void][BilingualProbe]::SendMessage($combo,0x014E,[IntPtr]$index,[IntPtr]::Zero)
- # WinForms reflects WM_COMMAND by the child HWND in LOWORD (not the control id),
- # so encode the combo handle there and CBN_SELCHANGE (1) in HIWORD.
- $wparam=[IntPtr](([long]$combo) -bor (1L -shl 16))
- $target=$Window
- # RightToLeftLayout recreates the dialog handle, so re-find it after each attempt
- # and walk up the real Win32 parent chain until the switch is observed.
- for($attempt=0;$attempt -lt 5;$attempt++){
-  if($target -eq [IntPtr]::Zero){ break }
-  [void][BilingualProbe]::SendMessage($target,0x0111,$wparam,$combo)
-  # Also deliver the reflected notification straight to the combo, which is the
-  # message WinForms' parent reflection produces for a CBN_SELCHANGE.
-  [void][BilingualProbe]::SendMessage($combo,0x2111,$wparam,$combo)
-  try{ return (Wait-Dialog $Process $Stage $ExpectedTitle 4) }catch{ }
-  $target=[BilingualProbe]::GetParent($target)
-  $fresh=[BilingualProbe]::FindDialog($Process.Id,"($Stage/3)")
-  if($fresh -ne [IntPtr]::Zero){ $target=$fresh }
- }
- $stale=[BilingualProbe]::FindDialog($Process.Id,"($Stage/3)")
- $actual=if($stale -ne [IntPtr]::Zero){[BilingualProbe]::Title($stale)}else{'<no dialog>'}
- throw "Language switch was not observed: expected '$ExpectedTitle' actual '$actual'"
-}
 function Save-Image {
  param([IntPtr]$Window,[string]$Name)
  $rect=New-Object BilingualProbe+Rect
@@ -157,6 +131,31 @@ $m=Get-Module RemoteAccessSafety
    if($dialog.Tag.RequiredPhrase -cne $dialog.Tag.Catalog.$language.Stages[0].Phrase){ throw 'Initial required phrase is wrong' }
   }finally{ $dialog.Dispose() }
  }
+ # Drive the REAL language selector and assert the live control state it produces.
+ $dialog=New-RemoteAccessSafetyDialog -Stage 1 -Language en
+ try{
+  $tag=$dialog.Tag
+  $tag.InputBox.Text=$tag.Catalog.en.Stages[0].Phrase
+  if(-not $tag.YesButton.Enabled){ throw 'Exact English phrase did not enable Yes' }
+  $tag.LanguageCombo.SelectedIndex=1
+  if($tag.Language -ne 'he'){ throw 'Selector did not switch to Hebrew' }
+  if($tag.InputBox.Text -ne ''){ throw 'Switching language did not clear the typed phrase' }
+  if($tag.YesButton.Enabled){ throw 'Yes stayed enabled after switching language' }
+  if($tag.RequiredPhrase -cne $tag.Catalog.he.Stages[0].Phrase){ throw 'Required phrase did not switch to Hebrew' }
+  if($dialog.RightToLeft -ne [Windows.Forms.RightToLeft]::Yes -or -not $dialog.RightToLeftLayout){ throw 'Hebrew RTL was not applied by the selector' }
+  if($dialog.Text -cne ($tag.Catalog.he.Title+' (1/3)')){ throw 'Dialog title did not switch to Hebrew' }
+  if($tag.YesButton.Text -cne $tag.Catalog.he.Yes -or $tag.NoButton.Text -cne $tag.Catalog.he.No -or $tag.CancelButton.Text -cne $tag.Catalog.he.Cancel){ throw 'Buttons were not relabelled' }
+  $tag.InputBox.Text=$tag.Catalog.en.Stages[0].Phrase
+  if($tag.YesButton.Enabled){ throw 'English phrase unlocked Yes while Hebrew was selected' }
+  $tag.InputBox.Text=$tag.Catalog.he.Stages[0].Phrase
+  if(-not $tag.YesButton.Enabled){ throw 'Hebrew phrase did not unlock Yes' }
+  $tag.LanguageCombo.SelectedIndex=0
+  if($tag.YesButton.Enabled -or $tag.InputBox.Text -ne '' -or $dialog.RightToLeftLayout){ throw 'Switching back to English did not reset the dialog' }
+  $tag.LanguageCombo.SelectedIndex=1
+  $bitmap=New-Object Drawing.Bitmap($dialog.Width,$dialog.Height)
+  try{ $dialog.DrawToBitmap($bitmap,(New-Object Drawing.Rectangle(0,0,$dialog.Width,$dialog.Height))); $bitmap.Save((Join-Path $env:RATB_PROBE_EVIDENCE 'hebrew-dialog-render.png'),[Drawing.Imaging.ImageFormat]::Png) }
+  finally{ $bitmap.Dispose() }
+ }finally{ $dialog.Dispose() }
 }
 $value=@(Confirm-AllowRemoteAccess)
 if($value.Count -ne 1 -or $value[0] -isnot [bool]){ throw 'Bad confirmation result' }
@@ -166,44 +165,36 @@ exit 0
 $records=@();$process=$null
 try{
  foreach($case in @(
-  @{Case='no-first';Count=1;End='No';Languages=@('en');Expected='False'},
-  @{Case='no-second';Count=2;End='No';Languages=@('en','en');Expected='False'},
-  @{Case='no-third';Count=3;End='No';Languages=@('en','en','en');Expected='False'},
-  @{Case='cancel-hebrew';Count=1;End='Cancel';Languages=@('he');Expected='False'},
-  @{Case='close-window';Count=1;End='Close';Languages=@('en');Expected='False'},
-  @{Case='english-all';Count=3;End='Yes';Languages=@('en','en','en');Expected='True'},
-  @{Case='hebrew-all';Count=3;End='Yes';Languages=@('he','he','he');Expected='True'},
-  @{Case='switch-language';Count=3;End='Yes';Languages=@('he','en','he');Expected='True'}
+  @{Case='no-first';Count=1;End='No';Expected='False'},
+  @{Case='no-second';Count=2;End='No';Expected='False'},
+  @{Case='no-third';Count=3;End='No';Expected='False'},
+  @{Case='cancel';Count=1;End='Cancel';Expected='False'},
+  @{Case='close-window';Count=1;End='Close';Expected='False'},
+  @{Case='approve-all';Count=3;End='Yes';Expected='True'}
  )){
   $resultFile=Join-Path $fixture ($case.Case+'.txt')
   $psi=New-Object Diagnostics.ProcessStartInfo
   $psi.FileName=(Get-Process -Id $PID).Path
   $psi.Arguments='-NoProfile -STA -ExecutionPolicy Bypass -File "'+$childFile+'"'
   $psi.UseShellExecute=$false;$psi.RedirectStandardOutput=$true;$psi.RedirectStandardError=$true
-  $psi.EnvironmentVariables['RATB_PROBE_MODULE']=$modulePath;$psi.EnvironmentVariables['RATB_PROBE_RESULT']=$resultFile
+  $psi.EnvironmentVariables['RATB_PROBE_MODULE']=$modulePath;$psi.EnvironmentVariables['RATB_PROBE_RESULT']=$resultFile;$psi.EnvironmentVariables['RATB_PROBE_EVIDENCE']=$EvidenceDir
   $process=New-Object Diagnostics.Process;$process.StartInfo=$psi
   if(-not $process.Start()){ throw 'Native dialog child failed to start' }
   $stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
-  $currentLanguage='en'
+  $language='en'
   for($stage=1;$stage -le $case.Count;$stage++){
    Write-Host "Native proof: $($case.Case) stage $stage"
-   $title=[string]$catalog.$currentLanguage.Title+' ('+$stage+'/3)'
+   $title=[string]$catalog.en.Title+' ('+$stage+'/3)'
    $window=Wait-Dialog $process $stage $title
-   $yesText=[string]$catalog.$currentLanguage.Yes
+   $yesText=[string]$catalog.en.Yes
    Assert-YesEnabled $window $yesText $false 'empty input'
-   $language=$case.Languages[$stage-1]
-   if($language -ne $currentLanguage){
-    Set-InputText $window ([string]$catalog.$currentLanguage.Stages[$stage-1].Phrase)
-    Assert-YesEnabled $window $yesText $true 'exact pre-switch phrase'
-    $newTitle=[string]$catalog.$language.Title+' ('+$stage+'/3)'
-    $window=Set-Language $process $stage $window $language $newTitle
-    $yesText=[string]$catalog.$language.Yes
-    Assert-YesEnabled $window $yesText $false 'language switch must reset Yes'
-    if((Get-InputText $window) -ne ''){ throw 'Language switch did not clear the typed phrase' }
-    $currentLanguage=$language
-   }
    $rtl=([BilingualProbe]::GetWindowLong($window,-20) -band 0x400000) -ne 0
-   if($rtl -ne ($language -eq 'he')){ throw "Native RTL mismatch for $language" }
+   if($rtl){ throw 'English dialog must not use RTL layout' }
+   $combo=Get-LanguageBox $window
+   $itemCount=[BilingualProbe]::SendMessage($combo,0x0146,[IntPtr]::Zero,[IntPtr]::Zero).ToInt64()
+   if($itemCount -ne 2){ throw "Language selector has $itemCount entries; expected English and Hebrew" }
+   $selected=[BilingualProbe]::SendMessage($combo,0x0147,[IntPtr]::Zero,[IntPtr]::Zero).ToInt64()
+   if($selected -ne 0){ throw 'Dialog did not start in English' }
    # Localized field labels must actually be present on the live dialog.
    foreach($label in @([string]$catalog.$language.LanguageLabel,[string]$catalog.$language.Instruction,[string]$catalog.$language.Stages[$stage-1].Phrase)){
     $found=$false
@@ -228,7 +219,7 @@ try{
     Set-InputText $window ([string]$catalog.$language.Stages[$stage-1].Phrase)
     Assert-YesEnabled $window $yesText $true 'exact selected-language phrase must unlock Yes'
    }
-   if($case.Case -in 'english-all','hebrew-all'){ Save-Image $window ("$($case.Case)-stage-$stage.png") }
+   if($case.Case -eq 'approve-all'){ Save-Image $window ("english-stage-$stage.png") }
    if($button -eq 'Close'){ [void][BilingualProbe]::PostMessage($window,0x0010,[IntPtr]::Zero,[IntPtr]::Zero) }
    else{ [void][BilingualProbe]::SendMessage((Get-Button $window ([string]$catalog.$language.$button)),0x00F5,[IntPtr]::Zero,[IntPtr]::Zero) }
   }
@@ -238,7 +229,7 @@ try{
   if(-not (Test-Path -LiteralPath $resultFile)){ throw 'No native result file' }
   $result=[IO.File]::ReadAllText($resultFile)
   if($result -ne $case.Expected){ throw "Wrong result $($case.Case): $result" }
-  $records += [pscustomobject]@{Case=$case.Case;Dialogs=$case.Count;Result=$result;Native=$true;DefaultButton='No';TypedPhraseGate=$true;Languages=($case.Languages -join ',')}
+  $records += [pscustomobject]@{Case=$case.Case;Dialogs=$case.Count;Result=$result;Native=$true;DefaultButton='No';TypedPhraseGate=$true;Language='en'}
   Write-Host "PASS: bilingual native $($case.Case), result=$result."
   $process.Dispose();$process=$null
  }
