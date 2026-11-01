@@ -203,7 +203,6 @@ $m=Get-Module RemoteAccessSafety
   if($tag.YesButton.Enabled){ throw 'Yes stayed enabled after switching language' }
   if($tag.RequiredPhrase -cne $tag.Catalog.he.Stages[0].Phrase){ throw 'Required sentence did not switch to Hebrew' }
   if($dialog.RightToLeft -ne [Windows.Forms.RightToLeft]::Yes){ throw 'Hebrew RTL was not applied by the selector' }
-  if($tag.ButtonPanel.FlowDirection -ne [Windows.Forms.FlowDirection]::RightToLeft){ throw 'Hebrew button order was not mirrored' }
   if($dialog.Text -cne ($tag.Catalog.he.Title+' (1/3)')){ throw 'Dialog title did not switch to Hebrew' }
   if($tag.YesButton.Text -cne $tag.Catalog.he.Yes -or $tag.NoButton.Text -cne $tag.Catalog.he.No -or $tag.CancelButton.Text -cne $tag.Catalog.he.Cancel){ throw 'Buttons were not relabelled' }
   $tag.InputBox.Text=$tag.Catalog.en.Stages[0].Phrase

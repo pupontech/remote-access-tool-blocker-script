@@ -234,7 +234,6 @@ function New-RemoteAccessSafetyDialog {
     $renderings = @{}
     $rtlValues = @{}
     $alignValues = @{}
-    $flowValues = @{}
     foreach ($code in @('en', 'he')) {
         $entry = $catalogValue.$code
         $stageInfo = @($entry.Stages)[$stageIndex]
@@ -253,7 +252,6 @@ function New-RemoteAccessSafetyDialog {
         $isRtl = $code -eq 'he'
         $rtlValues[$code] = if ($isRtl) { [System.Windows.Forms.RightToLeft]::Yes } else { [System.Windows.Forms.RightToLeft]::No }
         $alignValues[$code] = if ($isRtl) { [System.Drawing.ContentAlignment]::MiddleRight } else { [System.Drawing.ContentAlignment]::MiddleLeft }
-        $flowValues[$code] = if ($isRtl) { [System.Windows.Forms.FlowDirection]::RightToLeft } else { [System.Windows.Forms.FlowDirection]::LeftToRight }
     }
     $alignLeft = $alignValues['en']
     $alignRight = $alignValues['he']
@@ -280,11 +278,11 @@ function New-RemoteAccessSafetyDialog {
             $tag.YesButton.Enabled = $true
         }
         # RightToLeftLayout is deliberately NOT assigned: on a visible form it re-creates the
-        # window handle, which can throw inside the change handler. Setting RightToLeft on the
-        # form propagates to its children, and the flow panel and label alignment are set
-        # explicitly because neither inherits the reading direction.
+        # window handle, which can throw inside the change handler. WinForms already mirrors
+        # children when the form is right-to-left, so the flow direction is left alone here;
+        # flipping it as well would mirror the buttons twice. Only label alignment needs an
+        # explicit value.
         $form.RightToLeft = $rtlValues[$selectedLanguage]
-        $buttons.FlowDirection = $flowValues[$selectedLanguage]
         $alignment = if ($selectedLanguage -eq 'he') { $alignRight } else { $alignLeft }
         $tag.LanguageLabel.TextAlign = $alignment
         if ($tag.RequiresPhrase) {
