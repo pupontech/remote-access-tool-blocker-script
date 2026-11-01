@@ -158,6 +158,7 @@ function Invoke-RemoteAccessProtectionInstaller {
     if ($Mode -eq 'Enforce') { $arguments += @('-Variant', $script:AllBlockedVariant) }
     $argumentLine = $arguments -join ' '
     $process = Start-Process -FilePath $script:WindowsPowerShellPath -ArgumentList $argumentLine -Wait -PassThru -NoNewWindow
+    if ($Mode -eq 'Remove' -and $process.ExitCode -eq 6) { throw [OperationCanceledException]::new('Cancelled. Protection was not removed.') }
     if ($process.ExitCode -ne 0) { throw "Install-RmmAppControl failed with exit code $($process.ExitCode)." }
 }
 

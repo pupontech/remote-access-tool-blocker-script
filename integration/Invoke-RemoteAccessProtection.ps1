@@ -56,6 +56,7 @@ try {
     }
     exit 0
 } catch {
+    if ($_.Exception -is [OperationCanceledException]) { Write-Host $_.Exception.Message; exit 6 }
     Write-Host ("ERROR: " + $_.Exception.Message) -ForegroundColor Red
     if ($env:OS -eq 'Windows_NT' -and $Action -ne 'Status') {
         try {

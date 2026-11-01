@@ -52,6 +52,7 @@ jobs:
           ./tests/Test-WindowsOnlyRecovery.ps1
           ./tests/Test-RemoteAccessSafety.ps1
           ./tests/Test-AllowRemoteAccessRouting.ps1
+          ./tests/Test-AllowCancellation.ps1
           ./tests/Test-RemovalConsentBoundary.ps1
           ./tests/Test-OneClickLaunchers.ps1
       - name: Policy inventory
