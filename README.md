@@ -6,7 +6,7 @@ Blocking a support tool can sever remote access. Have a local recovery route and
 
 ## Download — testing preview, not production-ready
 
-[Download the Windows App Control script ZIP](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.4-preview.1/remote-access-tool-blocker-script-only-0.1.3-preview.zip) · [SHA-256 checksum](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.4-preview.1/remote-access-tool-blocker-script-only-0.1.3-preview.zip.sha256) · [Release notes](https://github.com/pupontech/remote-access-tool-blocker-script/releases/tag/v0.1.4-preview.1)
+[Download the Windows App Control script ZIP](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.4-preview.1/remote-access-tool-blocker-script-only-0.1.4-preview.zip) · [SHA-256 checksum](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.4-preview.1/remote-access-tool-blocker-script-only-0.1.4-preview.zip.sha256) · [Release notes](https://github.com/pupontech/remote-access-tool-blocker-script/releases/tag/v0.1.4-preview.1)
 
 This is a **Windows PowerShell script package**, not an EXE installer or antivirus. It installs Windows App Control rules to block new starts of covered remote-access software and adds separate **Allow Remote Access** and **Block Remote Access** desktop shortcuts. **There is no ESET integration, website filtering, or software removal in this repository.** The download contains the scripts, compiled policy variants, Windows-only emergency recovery, and `HANDOFF-FOR-IMPLEMENTING-AGENT.md` for embedding it into another script. The optional GUI kit in the source tree is not part of this script-only ZIP.
 
