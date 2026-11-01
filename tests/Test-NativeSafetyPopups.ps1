@@ -62,7 +62,10 @@ function Wait-Dialog {
   }
   Start-Sleep -Milliseconds 100
  }
- throw "Dialog not found: stage=$Stage expected='$ExpectedTitle' exited=$($Process.HasExited)"
+ $detail=''
+ if($script:ProbeError -and (Test-Path -LiteralPath $script:ProbeError)){ $detail+=' error='+(Get-Content -LiteralPath $script:ProbeError -Raw) }
+ if($script:ProbeLog -and (Test-Path -LiteralPath $script:ProbeLog)){ $detail+=' log='+((Get-Content -LiteralPath $script:ProbeLog -Raw) -replace "`r?`n",' | ') }
+ throw "Dialog not found: stage=$Stage expected='$ExpectedTitle' exited=$($Process.HasExited)$detail"
 }
 function Get-Children([IntPtr]$Window){ return @([BilingualProbe]::Children($Window)) }
 function Find-Control {
@@ -131,12 +134,24 @@ New-Item -ItemType Directory -Path $fixture | Out-Null
 $childFile=Join-Path $fixture 'dialog-child.ps1'
 [IO.File]::WriteAllText($childFile,@'
 $ErrorActionPreference='Stop'
+$stepLog=$env:RATB_PROBE_LOG
+function Step { param([string]$Message) if($stepLog){ [IO.File]::AppendAllText($stepLog,($Message+[Environment]::NewLine)) } }
+trap {
+ $detail=$_.Exception.ToString()+[Environment]::NewLine+$_.InvocationInfo.PositionMessage
+ try{ [IO.File]::WriteAllText($env:RATB_PROBE_ERROR,$detail) }catch{}
+ Step ('FAILED: '+$detail)
+ exit 1
+}
+Step 'start'
 Add-Type -AssemblyName System.Windows.Forms
+Step 'forms loaded'
 Import-Module $env:RATB_PROBE_MODULE -Force
+Step 'module imported'
 $m=Get-Module RemoteAccessSafety
 & $m {
  # Stage 1 asks for one sentence; stages 2 and 3 must not ask for anything.
  foreach($language in 'en','he'){
+  if($stepLog){ [IO.File]::AppendAllText($stepLog,("build stage 1 "+$language+"`n")) }
   $dialog=New-RemoteAccessSafetyDialog -Stage 1 -Language $language
   try{
    if($dialog.Tag.YesButton.Enabled){ throw 'Yes initially enabled on stage 1' }
@@ -147,6 +162,7 @@ $m=Get-Module RemoteAccessSafety
    if($rtl -ne ($language -eq 'he')){ throw "Stage 1 RTL does not match $language" }
   }finally{ $dialog.Dispose() }
   foreach($stage in 2,3){
+   if($stepLog){ [IO.File]::AppendAllText($stepLog,("build stage "+$stage+" "+$language+"`n")) }
    $dialog=New-RemoteAccessSafetyDialog -Stage $stage -Language $language
    try{
     if($null -ne $dialog.Tag.InputBox){ throw "Stage $stage must not create an input box" }
@@ -159,6 +175,7 @@ $m=Get-Module RemoteAccessSafety
   }
  }
  # Drive the REAL language selector on stage 1 and assert the live control state it produces.
+ if($stepLog){ [IO.File]::AppendAllText($stepLog,"selector check`n") }
  $dialog=New-RemoteAccessSafetyDialog -Stage 1 -Language en
  try{
   $tag=$dialog.Tag
@@ -218,6 +235,7 @@ if($env:RATB_PROBE_LANGUAGE){
  [IO.File]::WriteAllText($env:RATB_PROBE_RESULT,[string]$approved)
  exit 0
 }
+if($stepLog){ [IO.File]::AppendAllText($stepLog,"confirm`n") }
 $value=@(Confirm-AllowRemoteAccess)
 if($value.Count -ne 1 -or $value[0] -isnot [bool]){ throw 'Bad confirmation result' }
 [IO.File]::WriteAllText($env:RATB_PROBE_RESULT,[string]$value[0])
@@ -232,6 +250,7 @@ function Start-ProbeChild {
  $psi.EnvironmentVariables['RATB_PROBE_MODULE']=$modulePath
  $psi.EnvironmentVariables['RATB_PROBE_RESULT']=$ResultFile
  $psi.EnvironmentVariables['RATB_PROBE_ERROR']=$ErrorFile
+ $psi.EnvironmentVariables['RATB_PROBE_LOG']=$ErrorFile+'.log'
  $psi.EnvironmentVariables['RATB_PROBE_EVIDENCE']=$EvidenceDir
  foreach($key in $Extra.Keys){ $psi.EnvironmentVariables[$key]=$Extra[$key] }
  $child=New-Object Diagnostics.Process;$child.StartInfo=$psi
@@ -251,6 +270,8 @@ try{
  )){
   $resultFile=Join-Path $fixture ($case.Case+'.txt')
   $errorFile=Join-Path $fixture ($case.Case+'.err')
+  $script:ProbeError=$errorFile
+  $script:ProbeLog=$errorFile+'.log'
   $extra=@{}
   if($case.Language -eq 'he'){ $extra['RATB_PROBE_LANGUAGE']='he' }
   $process=Start-ProbeChild -ResultFile $resultFile -ErrorFile $errorFile -Extra $extra
