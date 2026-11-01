@@ -56,3 +56,5 @@ try {
 }
 
 Write-Host 'One-click launcher tests passed.'
+# The final fixture intentionally exits nonzero; do not leak that expected code to CI.
+exit 0
