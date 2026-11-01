@@ -5,8 +5,8 @@ Notable project changes. Historical dates refer to the versioning dates carried 
 ## 0.1.4-preview.1 — One typed sentence and crash-safe language switching
 
 - Ask for one sentence on the first safety dialog only. The second and third dialogs are plain Yes/No/Cancel confirmations with no input box and no phrase label, so nothing is typed three times.
-- Stop toggling `RightToLeftLayout` at runtime. On a visible form it re-creates the window handle, which can throw inside the language-change handler. Hebrew now uses per-control `RightToLeft`, mirrored label alignment, and a reversed button flow, so the selector switches direction without rebuilding the window.
-- Prove the live switch on Windows: a visible dialog flips English to Hebrew and back twice against the real selector, while the test watches the window title, reads the translated warning text, captures both states, and requires the child process to exit cleanly.
+- Stop toggling `RightToLeftLayout` at runtime. On a visible form it re-creates the window handle, which can throw inside the language-change handler. Hebrew now sets the form's `RightToLeft` (WinForms mirrors the children itself), aligns the labels to the right, and leaves the button flow alone so the order is not mirrored twice. The selector switches direction without rebuilding the window.
+- Prove the live switch on Windows: a visible dialog flips English to Hebrew and back twice against the real selector while the window is on screen, checking the language, title, warning text and visibility at each step, then requiring a clean child exit and evidence that both languages were seen.
 - Reject any build that asks for a second phrase, ships console input in the safety module, or assigns `RightToLeftLayout`.
 - Live policy enforcement, UAC on a real endpoint, desktop shortcut creation, and reboot transitions remain untested by CI. Earlier findings about policy-state verification, staged versus active reporting, removal error reporting, recovery backups, and install-folder trust are still open. This remains a testing prerelease.
 
