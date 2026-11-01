@@ -173,9 +173,9 @@ function New-RemoteAccessSafetyDialog {
         $tag.Approved = [bool]$false
         $form.Text = ('{0} ({1}/3)' -f $current.Title, $tag.Stage)
         $languageLabel.Text = $current.LanguageLabel
-        # WinForms TextBoxes need CRLF; the JSON catalog stores \n so paragraphs would merge.
-        $warningBox.Text = ([string]$current.Stages[$tag.Stage - 1].Warning).Replace("`n", "
-`n")
+        # WinForms TextBoxes need CRLF; the JSON catalog stores LF only, so paragraphs would merge.
+        $warningText = ([string]$current.Stages[$tag.Stage - 1].Warning).Replace([string]([char]13 + [char]10), [string][char]10)
+        $warningBox.Text = $warningText.Replace([string][char]10, [Environment]::NewLine)
         $phraseLabel.Text = [string]$current.Stages[$tag.Stage - 1].Phrase
         $instruction.Text = $current.Instruction
         $yesButton.Text = $current.Yes; $noButton.Text = $current.No; $cancelButton.Text = $current.Cancel
