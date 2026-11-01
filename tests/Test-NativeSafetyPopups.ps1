@@ -215,16 +215,28 @@ $m=Get-Module RemoteAccessSafety
  }finally{ $dialog.Dispose() }
 }
 if($env:RATB_PROBE_SWITCH){
- # Prove the live switch cannot crash: flip the selector on a VISIBLE dialog with a timer.
+ # Prove the live switch cannot crash: flip the selector on a VISIBLE dialog with a timer,
+ # and assert the live controls follow the language while the window is on screen.
  $dialog=& $m { New-RemoteAccessSafetyDialog -Stage 1 -Language en }
+ $tag=$dialog.Tag
  $state=@{Step=0;Error=''}
+ $seen=New-Object System.Collections.ArrayList
  $timer=New-Object Windows.Forms.Timer
- $timer.Interval=700
+ $timer.Interval=600
  $timer.add_Tick({
   try{
    $state.Step++
-   if($state.Step -le 4){ $dialog.Tag.LanguageCombo.SelectedIndex = $state.Step % 2 }
-   else { $timer.Stop(); $dialog.Close() }
+   if($state.Step -gt 4){ $timer.Stop(); $dialog.Close(); return }
+   $expected=if(($state.Step % 2) -eq 1){'he'}else{'en'}
+   $tag.LanguageCombo.SelectedIndex=$state.Step % 2
+   [Windows.Forms.Application]::DoEvents()
+   if($tag.Language -ne $expected){ throw "language did not become $expected" }
+   if($dialog.Text -cne ($tag.Catalog.$expected.Title+' (1/3)')){ throw "title did not become $expected" }
+   $boxText=$tag.WarningBox.Text.Replace("`r`n","`n")
+   $expectedText=([string]$tag.Catalog.$expected.Stages[0].Warning).Replace("`r`n","`n")
+   if($boxText -ne $expectedText){ throw "warning text did not become $expected" }
+   if(-not $dialog.Visible){ throw 'dialog closed during the switch' }
+   [void]$seen.Add($expected)
   }catch{
    $state.Error=$_.Exception.ToString()
    try{ [IO.File]::WriteAllText($env:RATB_PROBE_ERROR,$state.Error) }catch{}
@@ -239,7 +251,7 @@ if($env:RATB_PROBE_SWITCH){
  if($dialog.Visible){ $timer.Stop(); $dialog.Dispose(); throw 'Live switch dialog never closed' }
  $dialog.Dispose()
  if($state.Error){ throw "Live language switch threw: $($state.Error)" }
- [IO.File]::WriteAllText($env:RATB_PROBE_RESULT,('switches='+$state.Step))
+ [IO.File]::WriteAllText($env:RATB_PROBE_RESULT,('switches='+$state.Step+';seen='+($seen -join ',')))
  exit 0
 }
 if($env:RATB_PROBE_LANGUAGE){
@@ -373,30 +385,30 @@ try{
  $hebrewTitle=[string]$catalog.he.Title+' (1/3)'
  $window=Wait-Dialog $process 1 $englishTitle 30
  Save-Image $window 'live-switch-english.png'
- $sawHebrew=$false;$sawEnglishAgain=$false
+ $titles=New-Object System.Collections.ArrayList
  $deadline=[DateTime]::UtcNow.AddSeconds(20)
  while([DateTime]::UtcNow -lt $deadline -and -not $process.HasExited){
   if(-not [BilingualProbe]::IsWindow($window)){ break }
-  $title=[BilingualProbe]::Title($window)
-  if($title -eq $hebrewTitle -and -not $sawHebrew){
-   $sawHebrew=$true
-   Save-Image $window 'live-switch-hebrew.png'
-   $hebrewWarning=[BilingualProbe]::Text((Get-Warning $window))
-   if($hebrewWarning.Replace("`r`n","`n") -ne ([string]$catalog.he.Stages[0].Warning).Replace("`r`n","`n")){ throw 'Live switch did not translate the warning text' }
-  }
-  if($sawHebrew -and $title -eq $englishTitle){ $sawEnglishAgain=$true }
-  Start-Sleep -Milliseconds 100
+  try{
+   $title=[BilingualProbe]::Title($window)
+   if($title -and -not $titles.Contains($title)){ [void]$titles.Add($title) }
+   if($title -eq $hebrewTitle -and -not (Test-Path -LiteralPath (Join-Path $EvidenceDir 'live-switch-hebrew.png'))){
+    Save-Image $window 'live-switch-hebrew.png'
+   }
+  }catch{ }
+  Start-Sleep -Milliseconds 80
  }
  if(-not $process.WaitForExit(20000)){ throw 'Live switch child never exited' }
  if($process.ExitCode -ne 0){ throw ("Live switch child failed: "+$switchOut.GetAwaiter().GetResult()+$switchErr.GetAwaiter().GetResult()) }
  if(Test-Path -LiteralPath $switchError){ throw ('Live switch threw: '+(Get-Content -LiteralPath $switchError -Raw)) }
- if(-not $sawHebrew){ throw 'The visible dialog never switched to Hebrew' }
- if(-not $sawEnglishAgain){ throw 'The visible dialog never switched back to English' }
  if(-not (Test-Path -LiteralPath $switchResult)){ throw 'No live switch result file' }
  $switchText=[IO.File]::ReadAllText($switchResult)
- if($switchText -notmatch '^switches=[0-9]+$'){ throw "Unexpected live switch result: $switchText" }
- $records += [pscustomobject]@{Case='live-language-switch';Dialogs=1;Result='pass';Native=$true;SwitchedBothWays=$true;ProcessExit=0}
- Write-Host "PASS: live language switch survived, $switchText."
+ # The child asserts the live controls while the window is visible; the parent requires
+ # both directions to have been observed on screen and a clean exit.
+ if($switchText -notmatch '^switches=[0-9]+;seen=he,en,he,en$'){ throw "Unexpected live switch result: $switchText (titles seen: $($titles -join ' / '))" }
+ if(-not $titles.Contains($englishTitle)){ throw "The visible dialog was never observed in English (saw: $($titles -join ' / '))" }
+ $records += [pscustomobject]@{Case='live-language-switch';Dialogs=1;Result='pass';Native=$true;SwitchedBothWays=$true;ProcessExit=0;TitlesSeen=@($titles)}
+ Write-Host "PASS: live language switch survived, $switchText; titles observed: $($titles -join ' / ')."
  $process.Dispose();$process=$null
  [IO.File]::WriteAllText((Join-Path $EvidenceDir 'results.json'),($records|ConvertTo-Json -Depth 4))
 }finally{
