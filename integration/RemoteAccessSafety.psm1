@@ -298,9 +298,28 @@ function New-RemoteAccessSafetyDialog {
         }
     }.GetNewClosure()
 
+    $renderSelectedLanguage = {
+        try {
+            $selectedLanguage = if ($tag.LanguageCombo.SelectedIndex -eq 1) { 'he' } else { 'en' }
+            & $applyLanguage $selectedLanguage
+        } catch {
+            $tag.Approved = [bool]$false
+            $tag.YesButton.Enabled = $false
+            $form.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+            $form.Close()
+        }
+    }.GetNewClosure()
     $languageCombo.add_SelectedIndexChanged({
-        $selectedLanguage = if ($tag.LanguageCombo.SelectedIndex -eq 1) { 'he' } else { 'en' }
-        & $applyLanguage $selectedLanguage
+        # Native CBN_SELCHANGE is still using the ComboBox handle. Changing RTL
+        # synchronously can destroy that handle on .NET Framework and terminate
+        # Windows PowerShell 5.1. Render only after the native notification returns.
+        $tag.Approved = [bool]$false
+        $tag.YesButton.Enabled = $false
+        if ($form.IsHandleCreated) {
+            [void]$form.BeginInvoke([System.Action]$renderSelectedLanguage)
+        } else {
+            & $renderSelectedLanguage
+        }
     }.GetNewClosure())
 
     if ($requiresPhrase) {
