@@ -1,101 +1,100 @@
-# Windows App Control remote-access blocker
+# Remote Access Tool Blocker
 
-Applies Windows App Control (WDAC) deny rules to selected remote-access tools. Coverage is limited to the signers and file-name rules in this repository; unknown or unsigned tools may not be covered. This is not universal coverage.
+## For humans
 
-Blocking a support tool can sever remote access. Have a local recovery route and test on a disposable Windows machine before deployment.
+Windows 10/11 PowerShell scripts that block covered **TeamViewer, AnyDesk and RustDesk** launches. **Splashtop is allowed.** No ESET, website filtering or software removal.
 
-## Download — testing preview, not production-ready
+**Testing preview, not production-ready.** Unknown or unsigned tools may escape these rules. Keep local access: blocking a support tool can disconnect your remote session.
 
-[Download the Windows App Control script ZIP](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.7-preview.1/remote-access-tool-blocker-script-only-0.1.7-preview.zip) · [SHA-256 checksum](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.7-preview.1/remote-access-tool-blocker-script-only-0.1.7-preview.zip.sha256) · [Release notes](https://github.com/pupontech/remote-access-tool-blocker-script/releases/tag/v0.1.7-preview.1)
+### Download and use
 
-This is a **Windows PowerShell script package**, not an EXE installer or antivirus. It installs Windows App Control rules to block new starts of covered remote-access software and adds separate **Allow Remote Access** and **Block Remote Access** desktop shortcuts. **There is no ESET integration, website filtering, or software removal in this repository.** The download contains the scripts, compiled policy variants, Windows-only emergency recovery, and `HANDOFF-FOR-IMPLEMENTING-AGENT.md` for embedding it into another script. The optional GUI kit in the source tree is not part of this script-only ZIP.
+[Download the script ZIP](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.7-preview.1/remote-access-tool-blocker-script-only-0.1.7-preview.zip) · [Release notes](https://github.com/pupontech/remote-access-tool-blocker-script/releases/tag/v0.1.7-preview.1)
 
-### What changed in 0.1.7-preview.1
+1. Extract the whole ZIP into a new folder.
+2. Double-click **START-HERE.bat** and approve Windows administrator access. Rerun setup on each PC when upgrading.
+3. Use **Allow Remote Access** on the desktop for verified support. It asks for one sentence, then two more confirmations. **Enter approves the second and third dialogs.** No, Cancel or Escape refuses.
+4. Use **Block Remote Access** to block again. Close running remote tools before testing new launches; restart when instructed.
 
-- **Splashtop is allowed.** The script now selects **T1A1S0R1**, blocking covered TeamViewer, AnyDesk and RustDesk starts.
-- **Desktop icons return at startup.** Setup saves the two shortcuts and configures a SYSTEM startup task to copy only those shortcuts back. It does not re-enable or remove the policy.
-- **Centered confirmation buttons, Yes default.** The first Allow dialog still requires the exact sentence; Enter approves dialogs 2 and 3. No, Cancel, Escape and closing the dialog still refuse.
-- **Recovery-folder permissions are checked.** Setup locks the recovery/icon source folder to Administrators and SYSTEM, with Users read/execute, and checks the shared desktop before registering the restore task. This does not resolve the separate Program Files installation-folder review item.
+The icons appear for every user. If automatic restoration was configured successfully, deleted or changed icons return at startup. Stop or restart restoration with the matching `.bat` files in `C:\RemoteAccessToolBlocker\DesktopIcons`; this does not change blocking.
 
-**Upgrading from an earlier preview:** extract into a new folder and rerun **START-HERE.bat on every PC already set up**. Downloading this ZIP alone does not update installed scripts, shortcuts or policies. Restart when instructed. Keep local access throughout; setup can interrupt an existing remote-support connection.
+**Never trust an unexpected support caller.** Hang up and call an independently verified official number. Never share passwords or codes, or bank while connected.
 
-### Run the downloaded package
+---
 
-1. Extract the entire ZIP; keep its scripts and `policy` folder together.
-2. On a disposable Windows 10/11 test PC, double-click **START-HERE.bat**. It applies blocking directly after any required Windows administrator approval. No typing or extra confirmation is needed.
-3. After setup, **Allow Remote Access** removes this project's blocking only after administrator approval, one typed sentence, and two further native Windows confirmations. The ZIP also includes `Allow Remote Access.bat`, which opens the installed control; run setup first.
-4. Use the desktop **Block Remote Access** shortcut to restore blocking. Close already-running remote tools before testing new launches. Restart when instructed.
-5. Both icons are on the shared desktop, so every account sees them, including new ones. When the restore task is installed successfully, a deleted or changed icon comes back at the next startup—not immediately. Setup prints a red warning if automatic restoration cannot be configured; blocking setup still continues. To stop restoring icons, run `C:\RemoteAccessToolBlocker\DesktopIcons\Stop Restoring Icons.bat`; `Start Restoring Icons.bat` turns it back on. These helpers require administrator approval and do not change whether tools are blocked.
+## For AI agents
 
-### STOP: never give a stranger remote access
+### Scope and required reading
 
-Remote access can let someone see your screen, steal files and passwords, or take money. **An unexpected caller claiming to be Microsoft, your bank, a government office, or technical support is not proof of identity. Caller ID can be faked.** Hang up. Independently find the organisation's official number on a trusted website, your bill, or the back of your card, and dial it yourself. Do not use a number or link the caller supplies, or a search advertisement. Never share passwords or one-time codes, and do not use banking while someone is connected.
+Maintain the **script-only Windows App Control package**, not an EXE application. Read this section, [`docs/script-integration-handoff.md`](https://github.com/pupontech/remote-access-tool-blocker-script/blob/main/docs/script-integration-handoff.md), [`docs/testing.md`](https://github.com/pupontech/remote-access-tool-blocker-script/blob/main/docs/testing.md) and [`docs/CHANGELOG.md`](https://github.com/pupontech/remote-access-tool-blocker-script/blob/main/docs/CHANGELOG.md) before changes. Read the relevant source; documentation is not proof of runtime behavior.
 
-Allowing access displays three native Windows warning dialogs with an **English / עברית** selector. The warning text, buttons and required sentence change together, and switching language keeps the window alive instead of rebuilding it. Your language choice carries through all three dialogs.
+- Keep ESET integration, website filtering, software removal, services and automatic unblocking out of this project.
+- Keep the human section short. Put implementation details, verification commands and maintenance instructions here or in linked docs.
+- Preserve unrelated working-tree changes. Check the branch, remotes and current published release before editing; use an isolated worktree when needed. Do not push to the older `remote-access-tool-blocker` repository by mistake.
 
-**Only the first dialog asks you to type, and only one sentence.** Type it exactly, in the language currently shown, and Yes unlocks:
+### Code map
 
-| Language | Sentence to type |
+| Path | Responsibility |
 |---|---|
-| English | `I checked this person myself and I trust them` |
-| עברית | `בדקתי את האדם הזה בעצמי ואני סומך עליו` |
+| `integration/START-HERE.bat`, `Start-Here.ps1` | One-click setup and elevation |
+| `integration/Invoke-RemoteAccessProtection.ps1` | Installed controller and action routing |
+| `integration/RemoteAccessProtection.psm1` | Installation, state, desktop controls and icon restore task |
+| `integration/RemoteAccessSafety.psm1`, `RemoteAccessSafety.i18n.json` | Native English/Hebrew consent dialogs and translations |
+| `src/appcontrol/Install-RmmAppControl.v*.ps1` | Policy application/removal and recovery installation |
+| `policy/variants/` | Compiled policies and matching XML |
+| `revert/` | Windows-only local recovery |
+| `tests/`, `.github/workflows/powershell-ci.yml` | Portable and Windows verification |
+| `build/build-script-integration.sh` | Script-only ZIP builder and package verification |
 
-Switching language on that dialog clears the box and locks Yes again, so a sentence typed in one language never unlocks the other. Matching is case-sensitive and extra spaces do not count.
+The optional source kit under `kits/windows-only/` is not the script-only download. Do not substitute its GUI package for the requested ZIP.
 
-The second and third dialogs ask **nothing** to be typed — they are plain **Yes / No / Cancel** confirmations (Hebrew: **כן / לא / ביטול**). **Yes** is the default button and the buttons are centered. On the first dialog Yes stays disabled until the sentence matches, so Enter does nothing before that; on the second and third dialogs Enter means Yes. Escape always cancels. **Blocking still requires no typing at all.**
+### Preserve these contracts
 
-Choosing No, Cancel, or closing a popup leaves the policy unchanged. These prompts ask **you** to verify the person; the tool cannot verify their identity. Removing this block does not itself start a support session or make a caller trustworthy.
+1. **Policy identity:** retain `{2D13BFB7-4304-4847-9CDD-37820D3EE9B7}`. Change only this project's policy, never unrelated policies. Default variant is **T1A1S0R1**: covered TeamViewer, AnyDesk and RustDesk blocked; Splashtop allowed. App Control blocks new starts, not already-running processes. Do not claim universal signer coverage.
+2. **Setup and consent:** blocking needs no typed confirmation. Allow requires administrator approval, the exact sentence on dialog 1, then two further native confirmations. Yes is centered and default, but disabled on dialog 1 until the sentence matches. No, Cancel, Escape, close or UI failure refuses. Never add consent-bypass flags or unattended removal.
+3. **Languages:** preserve English/Hebrew switching, clear the sentence and disable Yes when switching, and carry the selected language through the dialogs. Keep the modal form and selector direction fixed. Defer rendering with `BeginInvoke`; apply RTL to text controls, not runtime form/selector direction changes. The latter caused Windows PowerShell 5.1 hard exits.
+4. **Desktop restoration:** the only scheduled task is `\RemoteAccessToolBlocker\Restore desktop icons`, SYSTEM SID `S-1-5-18`, **AtStartup only**. Its action copies only the two named shortcuts with `cmd.exe`; it must never change policy. Lock and read back recovery-folder permissions, check shared-desktop safety before registration, and preserve the Stop/Start helpers. Icon-restore failure warns while blocking setup continues.
+5. **Compatibility:** support Windows PowerShell 5.1 and 64-bit Windows paths. Keep `.ps1`/`.psm1` ASCII and `.bat` ASCII/CRLF. Keep translated text in the UTF-8 JSON catalog. Preserve attribution and license files.
 
-## Verification and remaining endpoint checks
+Required first-dialog sentences, matched exactly in the selected language:
 
-The release CI runs under **Windows PowerShell 5.1 and PowerShell 7**. It covers parsing/encoding, synthetic policy and consent routing, recovery-copy fixtures, real Windows shortcut bytes, the exact icon-copy command, native English/Hebrew dialogs, packaged launchers with an inert controller, and ZIP/source verification. It **never installs an App Control policy on the runner**.
+- English: `I checked this person myself and I trust them`
+- Hebrew: `בדקתי את האדם הזה בעצמי ואני סומך עליו`
 
-Before relying on this preview, test these on a spare Windows PC with local recovery access:
+### Verify before shipping
 
-- Run setup and confirm Splashtop works while covered TeamViewer, AnyDesk and RustDesk new launches are blocked; restart if requested.
-- Confirm both shared-desktop shortcuts work and appear for a new user.
-- Delete/change an icon, restart and verify restoration; test the Stop/Start helpers. Confirm the recovery folder cannot be changed by a standard user.
-- Exercise English/Hebrew switching and the typed sentence in the installed Allow flow; confirm No/Cancel/Escape leaves blocking unchanged, and Block restores it.
-- Check interactive UAC, actual policy state, removal and reboot transitions. These are not proven by synthetic CI.
-
-Known review concerns remain around policy-state/variant verification, staged-versus-active state on older Windows, removal error reporting, exact recovery backups, and Program Files installation-folder trust. The new recovery-folder permission checks do not close all installation-trust concerns. **This is a testing prerelease, not production-ready or a complete security boundary.** Keep local recovery access and do not rely on it as your only protection.
-
-## Primary integration: no-GUI desktop toggle
-
-For embedding in another Windows PowerShell script, see [`docs/script-integration-handoff.md`](docs/script-integration-handoff.md). The integration path creates the shared-desktop **Allow Remote Access** and **Block Remote Access** controls before enforcing **T1A1S0R1** (TeamViewer, AnyDesk and RustDesk blocked; Splashtop allowed). Disabling requires administrator approval, one typed sentence and two confirmations; blocking reinstalls the policy. It removes only this project's fixed policy ID. There is no full application window, service, or automatic unblock; the only scheduled task restores the two desktop icons at startup and never changes the block. The allow warnings use native Windows popups.
-
-Build the standalone preview package from a clean committed checkout:
+From the repository root, run the portable scope and integration checks:
 
 ```bash
-./build/build-script-integration.sh
+python3 tests/test_windows_only_repository.py
+pwsh -NoProfile -File tests/Test-ScriptIntegration.ps1
+pwsh -NoProfile -File tests/Test-WindowsOnlyRecovery.ps1
+pwsh -NoProfile -File tests/Test-RemoteAccessSafety.ps1
+pwsh -NoProfile -File tests/Test-AllowRemoteAccessRouting.ps1
+pwsh -NoProfile -File tests/Test-AllowCancellation.ps1
+pwsh -NoProfile -File tests/Test-RemovalConsentBoundary.ps1
+pwsh -NoProfile -File tests/Test-OneClickLaunchers.ps1
+pwsh -NoProfile -File tests/Test-AdministratorShortcut.ps1
 ```
 
-The preview ZIP is not a release. Consult the handoff for integration commands, architecture constraints, package verification, and Windows acceptance steps.
+Require the Windows workflow to pass under **Windows PowerShell 5.1 and PowerShell 7** on the exact source commit. It also runs the desktop-icon test, native popup proof, packaged launcher test, encoding/parser audit and policy/package inventory. A Linux skip is not Windows proof. CI does not install a live App Control policy.
 
-## Optional Windows-only GUI kit
+Build from a clean committed checkout:
 
-The optional Windows GUI kit is `kits/windows-only/`. On a fresh install it uses **T1A1S0R1**: TeamViewer, AnyDesk and RustDesk blocked; Splashtop allowed. This matches the primary integration path. The GUI offers Audit/Test, Enforce/Block, Remove/Undo, and status functions. Use the kit's `START-HERE.bat` on Windows and follow its prompts.
+```bash
+bash build/build-script-integration.sh
+python3 tests/verify-script-integration-package.py "dist/remote-access-tool-blocker-script-only-$(tr -d '\r\n' < VERSION)-preview.zip" --source-root .
+```
 
-## How the policy works
+For a release, update `VERSION`, changelog and download links together. Publish a new testing prerelease with the script-only ZIP and relative-filename checksum sidecar; do not overwrite published tags or assets. Prefer the exact-source workflow-dispatch artifact: a PR artifact can be stamped with GitHub's synthetic merge commit. Check `SOURCE-COMMIT.txt`, package members and source parity, then download the published asset back and compare its bytes and checksum. Keep the short operator README inside the ZIP. A later README edit does not change an already-published ZIP.
 
-The policy uses selected signer deny rules in the user-mode App Control scenario, based on Microsoft's example `AllowAll.xml` policy layout. Script enforcement and kernel/driver restrictions are not enabled. App Control blocks new process starts; it does not terminate already-running tools. A fixed policy ID allows this project to replace its own policy without changing unrelated policies.
+### Evidence limits and open concerns
 
-The signer list is hand-selected from LOLRMM catalogue data. Optional dual-use publishers are excluded because they also sign legitimate software. Rules may not cover unsigned, self-signed, uncatalogued, or certificate-less tools. See [`docs/how-it-works.md`](docs/how-it-works.md) and [`policy/signers.csv`](policy/signers.csv).
+Windows CI covers synthetic policy/consent routing, recovery-copy fixtures, real shortcut bytes, the icon-copy command, native English/Hebrew dialogs and packaged launchers with an inert controller. Do not present those as proof of live enforcement or complete installation security.
 
-## Safety and recovery
+Owner testing on a spare PC must still cover actual tool blocking/Splashtop allowance, UAC, SYSTEM task registration, standard-user permissions, new-user shortcuts, restart restoration, Stop/Start helpers and policy removal/reboot transitions. Capture actual CodeIntegrity events where applicable: 3076 for Audit and 3077 for Enforce.
 
-Use Audit mode first where practical, then examine CodeIntegrity events on the target PC before enforcing. Event 3076 denotes a would-be block in Audit mode; 3077 denotes an enforced block. These events are not evidence unless observed on the tested Windows machine.
+Known concerns remain around policy-state/variant verification, staged-versus-active reporting on older Windows, removal error reporting, exact recovery backups and Program Files installation-folder trust. Reproduce each before claiming a fix; recovery-folder permission checks do not resolve them all. Keep local recovery access and preserve the testing-preview warning.
 
-The Windows-only emergency revert is included for local recovery. Depending on Windows build, a policy transition may require a restart. Live policy application, UAC behavior, desktop toggle behavior, and reboot transitions remain acceptance checks; portable tests do not establish them. See [`docs/testing.md`](docs/testing.md).
+### Attribution
 
-## Rebuilding
-
-The committed `policy/` payload supports ordinary use without rebuilding. To regenerate policies from current catalogue data, use Windows 10/11 with the required ConfigCI tooling and PowerShell, following the build script's help and repository workflow. Validate the resulting package and test on a disposable Windows system before deployment.
-
-## Credits and license
-
-- **LOLRMM** ([site](https://lolrmm.io), [repository](https://github.com/magicsword-io/LOLRMM), Apache-2.0): source for catalogue-derived signer data.
-- **Microsoft**: example policy template and documented block-rule layout.
-- **RustDesk**: signing certificate provenance is documented separately in [`NOTICE`](NOTICE).
-
-See [`NOTICE`](NOTICE) for details. This project is provided as-is, without warranty, and is not affiliated with or endorsed by the vendors named. Licensed under Apache License 2.0; see [`LICENSE`](LICENSE).
+LOLRMM supplies catalogue-derived signer data ([repository](https://github.com/magicsword-io/LOLRMM), Apache-2.0). Microsoft supplies the example policy layout. RustDesk certificate provenance is recorded in [`NOTICE`](https://github.com/pupontech/remote-access-tool-blocker-script/blob/main/NOTICE). Retain [`LICENSE`](https://github.com/pupontech/remote-access-tool-blocker-script/blob/main/LICENSE) and NOTICE in every package. This project is provided as-is and is not endorsed by the named vendors.
