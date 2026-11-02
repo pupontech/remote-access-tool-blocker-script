@@ -204,6 +204,30 @@ function Enable-RemoteAccessProtection {
     Set-RemoteAccessProtection -State Blocked -InstallRoot $InstallRoot
 }
 
+function Set-RemoteAccessProtectionShortcutRunAs {
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    # MS-SHLLINK ShellLinkHeader: LinkFlags at 0x14; RunAsUser = 0x2000.
+    # Change only that bit, after verifying the header and Shell Link CLSID.
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    if ($bytes.Length -lt 76 -or [BitConverter]::ToUInt32($bytes, 0) -ne 76) {
+        throw 'Invalid Shell Link header; refusing to mark shortcut as administrator.'
+    }
+    $classId = [byte[]]$bytes[4..19]
+    $expectedId = ([guid]'00021401-0000-0000-C000-000000000046').ToByteArray()
+    if ([Convert]::ToBase64String($classId) -cne [Convert]::ToBase64String($expectedId)) {
+        throw 'Invalid Shell Link class; refusing to modify shortcut.'
+    }
+    $flags = [BitConverter]::ToUInt32($bytes, 20) -bor [uint32]0x2000
+    [Array]::Copy([BitConverter]::GetBytes([uint32]$flags), 0, $bytes, 20, 4)
+    [System.IO.File]::WriteAllBytes($Path, $bytes)
+    $readback = [System.IO.File]::ReadAllBytes($Path)
+    if ([Convert]::ToBase64String($readback) -cne [Convert]::ToBase64String($bytes)) {
+        throw 'Administrator shortcut verification failed.'
+    }
+}
+
 function New-RemoteAccessProtectionShortcut {
     [CmdletBinding()]
     param(
@@ -228,6 +252,9 @@ function New-RemoteAccessProtectionShortcut {
         $shortcut.Description = $control.Description
         $shortcut.IconLocation = $script:WindowsPowerShellPath + ',0'
         $shortcut.Save()
+        if ($control.Action -eq 'Allow') {
+            Set-RemoteAccessProtectionShortcutRunAs -Path $shortcutPath
+        }
         Write-Host "Desktop control created: $shortcutPath"
     }
     $legacyShortcut = Join-Path $desktop 'Remote access protection.lnk'

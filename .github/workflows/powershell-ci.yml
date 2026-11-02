@@ -55,6 +55,7 @@ jobs:
           ./tests/Test-AllowCancellation.ps1
           ./tests/Test-RemovalConsentBoundary.ps1
           ./tests/Test-OneClickLaunchers.ps1
+          ./tests/Test-AdministratorShortcut.ps1
       - name: Policy inventory
         run: |
           $files = @(Get-ChildItem policy/variants -Filter '*.cip' -File)
