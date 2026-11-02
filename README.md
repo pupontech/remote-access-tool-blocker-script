@@ -15,7 +15,20 @@ Windows 10/11 PowerShell scripts that block covered **TeamViewer, AnyDesk and Ru
 3. Use **Allow Remote Access** on the desktop for verified support. Type `trust` in English or `אמון` in Hebrew, then choose **Trust / אמון** on all three prompts. **Enter approves the second and third dialogs.** No, Cancel or Escape refuses.
 4. Use **Block Remote Access** to block again. Close running remote tools before testing new launches; restart when instructed.
 
-The icons appear for every user. If automatic restoration was configured successfully, deleted or changed icons return at startup. Stop or restart restoration with the matching `.bat` files in `C:\RemoteAccessToolBlocker\DesktopIcons`; this does not change blocking.
+### Stop or restart automatic desktop icons
+
+The icons are shared by all users, including new accounts. If restoration was configured successfully, deleted or changed icons return at the next Windows startup.
+
+Open File Explorer and paste this into the address bar:
+
+```text
+C:\RemoteAccessToolBlocker\DesktopIcons
+```
+
+- **Stop Restoring Icons.bat** removes the scheduled task. Existing icons stay in place.
+- **Start Restoring Icons.bat** recreates the task and runs it once to restore the icons.
+
+Approve the administrator prompt. **These files only control icon restoration; they do not block or allow remote access.** If the folder is missing, run **START-HERE.bat** from the current ZIP; if setup reports an icon-restoration warning, that step did not complete successfully.
 
 **Never trust an unexpected support caller.** Hang up and call an independently verified official number. Never share passwords or codes, or bank while connected.
 
