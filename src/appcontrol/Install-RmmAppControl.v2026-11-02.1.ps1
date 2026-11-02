@@ -210,7 +210,21 @@ function Protect-RevertFolder {
     & $icacls $InstallDir /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' /Q | Out-Null
     if ($LASTEXITCODE -ne 0) { Write-Log "WARNING: could not lock $InstallDir (icacls exit $LASTEXITCODE)."; return }
     & $icacls (Join-Path $InstallDir '*') /reset /T /C /Q | Out-Null
-    Write-Log "Locked $InstallDir to Administrators/SYSTEM (Users read-only)."
+    # Read the result back instead of trusting icacls' exit code.
+    $trusted = @('S-1-5-32-544', 'S-1-5-18', 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')
+    $writeRights = [System.Security.AccessControl.FileSystemRights]'WriteData, AppendData, WriteExtendedAttributes, WriteAttributes, Delete, DeleteSubdirectoriesAndFiles, ChangePermissions, TakeOwnership'
+    foreach ($item in @(Get-Item -LiteralPath $InstallDir -Force) + @(Get-ChildItem -LiteralPath $InstallDir -Recurse -Force -ErrorAction SilentlyContinue)) {
+        $acl = Get-Acl -LiteralPath $item.FullName
+        if ($trusted -notcontains $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value) {
+            Write-Log "WARNING: $($item.FullName) is not owned by Administrators/SYSTEM; the revert folder is NOT locked."; return
+        }
+        foreach ($rule in $acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier])) {
+            if ($rule.AccessControlType -eq 'Allow' -and $trusted -notcontains $rule.IdentityReference.Value -and ($rule.FileSystemRights -band $writeRights) -ne 0) {
+                Write-Log "WARNING: $($rule.IdentityReference.Value) can still change $($item.FullName); the revert folder is NOT locked."; return
+            }
+        }
+    }
+    Write-Log "Locked $InstallDir to Administrators/SYSTEM (Users read-only); verified."
 }
 
 function Test-Admin {

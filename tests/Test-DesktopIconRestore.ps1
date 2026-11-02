@@ -38,7 +38,9 @@ try {
 
     # Run the exact command the startup task runs: a deleted and a tampered icon both come back.
     $copyArgs = & $m { param($i, $d) Get-RemoteAccessProtectionIconRestoreArguments -IconDir $i -DesktopPath $d } $iconDir $desktop
-    if ($copyArgs -notmatch '^/d /c copy /y "[^"]+\\\*\.lnk" "[^"]+"$') { throw "Task arguments are not a single copy: $copyArgs" }
+    if ($copyArgs -notmatch '^/d /c copy /y "[^"*]+\\Allow Remote Access\.lnk" "[^"*]+" & copy /y "[^"*]+\\Block Remote Access\.lnk" "[^"*]+"$') { throw "Task arguments are not exactly the two named copies: $copyArgs" }
+    # Anything else that ends up in the folder must never be copied onto the desktop.
+    [IO.File]::WriteAllBytes((Join-Path $iconDir 'Stray.lnk'), [byte[]](7, 7))
     Remove-Item -LiteralPath $allow -Force
     [IO.File]::WriteAllBytes($block, [byte[]](9, 9, 9))
     foreach ($run in 1, 2) {
@@ -46,11 +48,22 @@ try {
         if ($p.ExitCode -ne 0) { throw "Restore copy failed on run $run (exit $($p.ExitCode))." }
         if (-not (Test-Path -LiteralPath $allow)) { throw "Deleted Allow icon was not restored on run $run." }
         if ([IO.File]::ReadAllBytes($block).Length -ne 64) { throw "Tampered Block icon was not replaced on run $run." }
+        if (Test-Path -LiteralPath (Join-Path $desktop 'Stray.lnk')) { throw 'A file other than the two icons was copied to the desktop.' }
     }
 
-    # A folder the current user owns must be reported as unsafe for a SYSTEM task.
+    # A folder the current user owns must be reported as unsafe for a SYSTEM task,
+    # both as the icon source and as the copy destination.
     $weak = & $m { param($p) Get-RemoteAccessProtectionFolderWeakness -Path $p } $recovery
     if (-not $weak) { throw 'A user-owned folder was reported as locked.' }
+    $weakDesktop = & $m { param($p) Get-RemoteAccessProtectionDesktopWeakness -DesktopPath $p } $desktop
+    if (-not $weakDesktop) { throw 'A user-writable desktop was reported as safe for the SYSTEM copy.' }
+    $public = [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonDesktopDirectory)
+    $publicWeak = & $m { param($p) Get-RemoteAccessProtectionDesktopWeakness -DesktopPath $p } $public
+    Write-Host ("INFO: this machine's shared desktop " + $(if ($publicWeak) { "would be REFUSED: $publicWeak" } else { 'passes the safety check.' }))
+
+    $engine = Get-Content -Raw (Get-ChildItem (Join-Path $root 'src\appcontrol') -Filter 'Install-RmmAppControl.v*.ps1' | Sort-Object Name -Descending | Select-Object -First 1).FullName
+    if (-not $engine.Contains('try { Protect-RevertFolder }')) { throw 'Engine does not lock the revert folder.' }
+    if ($engine -notmatch '(?s)function Protect-RevertFolder \{.*GetAccessRules.*NOT locked') { throw 'Engine does not read back the revert-folder lock.' }
 
     # Contracts on the real task definition and setup order.
     $module = Get-Content -Raw $modulePath
@@ -65,8 +78,10 @@ try {
     $restoreFn = [regex]::Match($module, '(?s)function Install-RemoteAccessProtectionIconRestore \{.*?\r?\n\}').Value
     if ($restoreFn -match 'Set-RemoteAccessProtection|Invoke-RemoteAccessProtectionInstaller|-Mode Remove') { throw 'Icon restore must never change the block.' }
     $lockIdx = $restoreFn.IndexOf('Protect-RemoteAccessProtectionFolder')
+    $desktopIdx = $restoreFn.IndexOf('Get-RemoteAccessProtectionDesktopWeakness')
     $taskIdx = $restoreFn.IndexOf('Register-ScheduledTask')
     if ($lockIdx -lt 0 -or $taskIdx -lt $lockIdx) { throw 'The folder must be locked before the SYSTEM task is registered.' }
+    if ($desktopIdx -lt 0 -or $taskIdx -lt $desktopIdx) { throw 'The shared desktop must be checked before the SYSTEM task is registered.' }
     $installFn = [regex]::Match($module, '(?s)function Install-RemoteAccessProtection \{.*?\r?\n\}').Value
     if ($installFn.IndexOf('New-RemoteAccessProtectionShortcut') -gt $installFn.IndexOf('Install-RemoteAccessProtectionIconRestore')) { throw 'Icons must exist before they are saved.' }
     Write-Host 'PASS: desktop icons are saved, restored by the single startup copy, Stop/Start helpers are correct, and unlocked folders are refused.'

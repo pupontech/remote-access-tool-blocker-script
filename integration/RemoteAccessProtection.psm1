@@ -292,6 +292,37 @@ function Get-RemoteAccessProtectionFolderWeakness {
     return $null
 }
 
+function Get-RemoteAccessProtectionDesktopWeakness {
+    # The SYSTEM task writes into the shared desktop. If a non-administrator could create
+    # entries there (a hard link or junction named like an icon), re-permission it, or
+    # replace the folder itself, the copy could be redirected onto another file. Only rules
+    # that apply to the folder itself count (inherit-only rules, e.g. a delete-children
+    # grant, cannot create anything). Returns a description, or $null when safe.
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][string]$DesktopPath)
+
+    $trusted = @('S-1-5-32-544', 'S-1-5-18', 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')
+    $folderRights = [System.Security.AccessControl.FileSystemRights]'WriteData, AppendData, Delete, ChangePermissions, TakeOwnership'
+    # On the parent only delete-children / re-permission matter (they allow replacing the
+    # desktop folder). Creating files in C:\Users\Public is normal for signed-in users.
+    $parentRights = [System.Security.AccessControl.FileSystemRights]'DeleteSubdirectoriesAndFiles, ChangePermissions, TakeOwnership'
+    $checks = @(@{ Path = $DesktopPath; Rights = $folderRights })
+    $parent = Split-Path -Path $DesktopPath.TrimEnd('\') -Parent
+    if ($parent) { $checks += @{ Path = $parent; Rights = $parentRights } }
+    foreach ($check in $checks) {
+        $acl = Get-Acl -LiteralPath $check.Path
+        $owner = $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
+        if ($trusted -notcontains $owner) { return "$($check.Path) (owner $($acl.Owner))" }
+        foreach ($rule in $acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier])) {
+            if ($rule.AccessControlType -ne [System.Security.AccessControl.AccessControlType]::Allow) { continue }
+            if (($rule.PropagationFlags -band [System.Security.AccessControl.PropagationFlags]::InheritOnly) -ne 0) { continue }
+            if ($trusted -contains $rule.IdentityReference.Value) { continue }
+            if (($rule.FileSystemRights -band $check.Rights) -ne 0) { return "$($check.Path) ($($rule.IdentityReference.Value) can create or re-permission entries)" }
+        }
+    }
+    return $null
+}
+
 function Protect-RemoteAccessProtectionFolder {
     # Administrators + SYSTEM full control, Users read/execute, nothing inherited from C:\
     # (whose default ACL lets every signed-in user modify new subfolders).
@@ -360,12 +391,16 @@ function Get-RemoteAccessProtectionIconRestoreFiles {
 }
 
 function Get-RemoteAccessProtectionIconRestoreArguments {
-    # cmd.exe arguments for the startup task: one built-in copy, overwriting changed icons.
+    # cmd.exe arguments for the startup task: cmd's built-in copy of the two named icons,
+    # overwriting changed ones. Named, not *.lnk, so nothing else in the folder is copied.
     param(
         [Parameter(Mandatory = $true)][string]$IconDir,
         [Parameter(Mandatory = $true)][string]$DesktopPath
     )
-    '/d /c copy /y "{0}\*.lnk" "{1}"' -f $IconDir.TrimEnd('\'), $DesktopPath.TrimEnd('\')
+    $from = $IconDir.TrimEnd('\')
+    $to = $DesktopPath.TrimEnd('\')
+    $copies = foreach ($name in @('Allow Remote Access.lnk', 'Block Remote Access.lnk')) { 'copy /y "{0}\{1}" "{2}"' -f $from, $name, $to }
+    '/d /c ' + ($copies -join ' & ')
 }
 
 function Install-RemoteAccessProtectionIconRestore {
@@ -396,6 +431,13 @@ function Install-RemoteAccessProtectionIconRestore {
 
     if (-not $SkipLock) { Protect-RemoteAccessProtectionFolder -Path $RecoveryRoot }
     if ($SkipTask) { return $iconDir }
+
+    $desktopWeakness = Get-RemoteAccessProtectionDesktopWeakness -DesktopPath $DesktopPath
+    if ($desktopWeakness) {
+        # Never leave an older copy of the task writing into an unsafe folder.
+        Unregister-ScheduledTask -TaskPath $taskPath -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+        throw "The shared desktop is writable by non-administrators, so no SYSTEM task will write there: $desktopWeakness"
+    }
 
     $cmd = Join-Path $env:SystemRoot 'System32\cmd.exe'
     $copyArgs = Get-RemoteAccessProtectionIconRestoreArguments -IconDir $iconDir -DesktopPath $DesktopPath
