@@ -9,7 +9,7 @@
   -Mode Status    show whether it is installed + recent block/audit events (default)
   -Variant T1A1S0R1 which toggles: T=TeamViewer A=AnyDesk S=Splashtop R=RustDesk, 1 = block, 0 = allow
                   (uses the matching policy variant; omitted = the policy root's default)
-                  (source/full-kit root default: T1A1S0R1; script-only preview root default: T1A1S1R1)
+                  (source/full-kit root default: T1A1S0R1; script-only preview root default: T1A1S0R1, Splashtop allowed)
 
   Install/Remove need admin (Run-RmmAppControl.bat elevates). Uses CiTool.exe (Windows 11 22H2+); on older builds it
   copies the policy into %windir%\System32\CodeIntegrity\CiPolicies\Active and asks for a restart.
@@ -27,7 +27,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$ScriptVersion = '2026-10-11.3'
+$ScriptVersion = '2026-11-02.1'
 $PolicyGuid = '{2D13BFB7-4304-4847-9CDD-37820D3EE9B7}'      # must match Build-RmmAppControl
 # Do not change $PolicyGuid: PCs already carrying this policy are keyed to it, and a new GUID would
 # stack a second policy instead of replacing the installed one.
@@ -201,6 +201,18 @@ function Install-RevertTool {
     Write-Log "Standalone revert tool installed to $InstallDir ($copied item(s) copied)."
 }
 
+function Protect-RevertFolder {
+    # Under C:\ new folders are user-modifiable by default, and admins run the
+    # Allow Remote Access.bat here elevated. Administrators/SYSTEM full, Users read.
+    if (-not (Test-Path -LiteralPath $InstallDir)) { return }
+    $icacls = Join-Path $env:SystemRoot 'System32\icacls.exe'
+    & $icacls $InstallDir /setowner '*S-1-5-32-544' /T /C /Q | Out-Null
+    & $icacls $InstallDir /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' /Q | Out-Null
+    if ($LASTEXITCODE -ne 0) { Write-Log "WARNING: could not lock $InstallDir (icacls exit $LASTEXITCODE)."; return }
+    & $icacls (Join-Path $InstallDir '*') /reset /T /C /Q | Out-Null
+    Write-Log "Locked $InstallDir to Administrators/SYSTEM (Users read-only)."
+}
+
 function Test-Admin {
     $p = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
     return $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -277,6 +289,7 @@ if ($Mode -in 'Enforce', 'Audit') {
     if ($Mode -eq 'Audit') { Write-Log 'AUDIT mode: nothing is blocked. Start a listed tool, then run Status to see the "would be blocked" event.' }
     # make the undo tool available on this PC regardless of which kit installed the policy
     try { Install-RevertTool } catch { Write-Log "Could not install the revert tool: $($_.Exception.Message)" }
+    try { Protect-RevertFolder } catch { Write-Log "Could not lock the revert tool folder: $($_.Exception.Message)" }
 } elseif ($Mode -eq 'Remove') {
     if (-not (Request-AllowRemoteAccessConsent)) { Write-Log 'Cancelled. No protection was removed.'; exit 6 }
     Write-Log 'Removing policy ...'

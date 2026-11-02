@@ -62,8 +62,8 @@ def main() -> int:
             "policy/RmmBlock-Audit.cip",
             "policy/signers.csv",
             "policy/skipped-signers.csv",
-            "policy/variants/RmmBlock-Enforce-T1A1S1R1.cip",
-            "policy/variants/RmmBlock-Enforce-T1A1S1R1.xml",
+            "policy/variants/RmmBlock-Enforce-T1A1S0R1.cip",
+            "policy/variants/RmmBlock-Enforce-T1A1S0R1.xml",
         }
         missing = sorted(required - set(names))
         if missing:
@@ -136,15 +136,15 @@ def main() -> int:
         if not expected_variants.issubset(set(names)):
             fail("one or more of the 32 policy variants is missing")
 
-        enforce_xml = zf.read("policy/variants/RmmBlock-Enforce-T1A1S1R1.xml").decode("utf-8-sig")
-        if "Enforce [T1A1S1R1]" not in enforce_xml:
-            fail("the all-blocked policy XML does not identify variant T1A1S1R1")
+        enforce_xml = zf.read("policy/variants/RmmBlock-Enforce-T1A1S0R1.xml").decode("utf-8-sig")
+        if "Enforce [T1A1S0R1]" not in enforce_xml:
+            fail("the default policy XML does not identify variant T1A1S0R1")
         for mode in ("Enforce", "Audit"):
             for extension in ("cip", "xml"):
                 baseline = f"policy/RmmBlock-{mode}.{extension}"
-                variant = f"policy/variants/RmmBlock-{mode}-T1A1S1R1.{extension}"
+                variant = f"policy/variants/RmmBlock-{mode}-T1A1S0R1.{extension}"
                 if zf.read(baseline) != zf.read(variant):
-                    fail(f"script-only baseline is not all-blocked: {baseline}")
+                    fail(f"script-only baseline is not the default variant: {baseline}")
         signer_rows = csv.DictReader(io.StringIO(zf.read("policy/signers.csv").decode("utf-8-sig")))
         signer_tiers = {row.get("Tier") for row in signer_rows}
         missing_tiers = sorted({f"toggle-{key}" for key in "TASR"} - signer_tiers)
@@ -160,8 +160,8 @@ def main() -> int:
         for member, data in (("RemoteAccessProtection.psm1", module), ("Invoke-RemoteAccessProtection.ps1", entry)):
             if b"New-Object Windows.Forms.Form" in data or b"ShowDialog" in data:
                 fail(f"full GUI dependency found in {member}")
-        if b"T1A1S1R1" not in module or b"CommonDesktopDirectory" not in module or b"Allow Remote Access" not in module:
-            fail("all-blocked default or shared desktop toggle contract is missing")
+        if b"T1A1S0R1" not in module or b"CommonDesktopDirectory" not in module or b"Allow Remote Access" not in module:
+            fail("default variant or shared desktop toggle contract is missing")
         for marker in (
             b"Set-RemoteAccessProtection -State Blocked",
             b"Invoke-RemoteAccessProtectionInstaller -Mode Enforce",
@@ -215,7 +215,7 @@ def main() -> int:
         for mode in ("Enforce", "Audit"):
             for extension in ("cip", "xml"):
                 member = f"policy/RmmBlock-{mode}.{extension}"
-                mappings[member] = f"policy/variants/RmmBlock-{mode}-T1A1S1R1.{extension}"
+                mappings[member] = f"policy/variants/RmmBlock-{mode}-T1A1S0R1.{extension}"
         if set(mappings) != set(names):
             fail(f"unexpected or unmapped members: {sorted(set(names) - set(mappings))}")
 
@@ -246,7 +246,7 @@ def main() -> int:
     if parts[0].lower() != actual_hash:
         fail("checksum sidecar digest does not match archive")
 
-    print(f"PASS: {archive.name} ({len(names)} members; exact source parity; all-blocked variant and no-GUI contracts verified)")
+    print(f"PASS: {archive.name} ({len(names)} members; exact source parity; default variant and no-GUI contracts verified)")
     print(f"SHA256: {actual_hash}")
     return 0
 

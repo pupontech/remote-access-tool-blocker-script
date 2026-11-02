@@ -6,7 +6,7 @@ Blocking a support tool can sever remote access. Have a local recovery route and
 
 ## Download — testing preview, not production-ready
 
-[Download the Windows App Control script ZIP](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.6-preview.1/remote-access-tool-blocker-script-only-0.1.6-preview.zip) · [SHA-256 checksum](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.6-preview.1/remote-access-tool-blocker-script-only-0.1.6-preview.zip.sha256) · [Release notes](https://github.com/pupontech/remote-access-tool-blocker-script/releases/tag/v0.1.6-preview.1)
+[Download the Windows App Control script ZIP](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.7-preview.1/remote-access-tool-blocker-script-only-0.1.7-preview.zip) · [SHA-256 checksum](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.7-preview.1/remote-access-tool-blocker-script-only-0.1.7-preview.zip.sha256) · [Release notes](https://github.com/pupontech/remote-access-tool-blocker-script/releases/tag/v0.1.7-preview.1)
 
 This is a **Windows PowerShell script package**, not an EXE installer or antivirus. It installs Windows App Control rules to block new starts of covered remote-access software and adds separate **Allow Remote Access** and **Block Remote Access** desktop shortcuts. **There is no ESET integration, website filtering, or software removal in this repository.** The download contains the scripts, compiled policy variants, Windows-only emergency recovery, and `HANDOFF-FOR-IMPLEMENTING-AGENT.md` for embedding it into another script. The optional GUI kit in the source tree is not part of this script-only ZIP.
 
@@ -16,6 +16,7 @@ This is a **Windows PowerShell script package**, not an EXE installer or antivir
 2. On a disposable Windows 10/11 test PC, double-click **START-HERE.bat**. It applies blocking directly after any required Windows administrator approval. No typing or extra confirmation is needed.
 3. After setup, **Allow Remote Access** removes this project's blocking only after administrator approval, one typed sentence, and two further native Windows confirmations. The ZIP also includes `Allow Remote Access.bat`, which opens the installed control; run setup first.
 4. Use the desktop **Block Remote Access** shortcut to restore blocking. Close already-running remote tools before testing new launches. Restart when instructed.
+5. Both icons are on the shared desktop, so every account sees them, including new ones. If an icon is deleted or changed, it comes back at the next startup. To stop that, run `C:\RemoteAccessToolBlocker\DesktopIcons\Stop Restoring Icons.bat`; `Start Restoring Icons.bat` turns it back on.
 
 ### STOP: never give a stranger remote access
 
@@ -32,7 +33,7 @@ Allowing access displays three native Windows warning dialogs with an **English 
 
 Switching language on that dialog clears the box and locks Yes again, so a sentence typed in one language never unlocks the other. Matching is case-sensitive and extra spaces do not count.
 
-The second and third dialogs ask **nothing** to be typed — they are plain **Yes / No / Cancel** confirmations (Hebrew: **כן / לא / ביטול**). **No** is the default button on every dialog, so pressing Enter accepts nothing. **Blocking still requires no typing at all.**
+The second and third dialogs ask **nothing** to be typed — they are plain **Yes / No / Cancel** confirmations (Hebrew: **כן / לא / ביטול**). **Yes** is the default button and the buttons are centered. On the first dialog Yes stays disabled until the sentence matches, so Enter does nothing before that; on the second and third dialogs Enter means Yes. Escape always cancels. **Blocking still requires no typing at all.**
 
 Choosing No, Cancel, or closing a popup leaves the policy unchanged. These prompts ask **you** to verify the person; the tool cannot verify their identity. Removing this block does not itself start a support session or make a caller trustworthy.
 
@@ -40,7 +41,7 @@ Choosing No, Cancel, or closing a popup leaves the policy unchanged. These promp
 
 ## Primary integration: no-GUI desktop toggle
 
-For embedding in another Windows PowerShell script, see [`docs/script-integration-handoff.md`](docs/script-integration-handoff.md). The integration path creates the shared-desktop **Allow Remote Access** and **Block Remote Access** controls before enforcing **T1A1S1R1** (TeamViewer, AnyDesk, Splashtop, and RustDesk blocked). Disabling requires administrator approval, one typed sentence and two confirmations; blocking reinstalls the policy. It removes only this project's fixed policy ID. There is no full application window, scheduled task, service, or automatic unblock; the allow warnings use native Windows popups.
+For embedding in another Windows PowerShell script, see [`docs/script-integration-handoff.md`](docs/script-integration-handoff.md). The integration path creates the shared-desktop **Allow Remote Access** and **Block Remote Access** controls before enforcing **T1A1S0R1** (TeamViewer, AnyDesk and RustDesk blocked; Splashtop allowed). Disabling requires administrator approval, one typed sentence and two confirmations; blocking reinstalls the policy. It removes only this project's fixed policy ID. There is no full application window, service, or automatic unblock; the only scheduled task restores the two desktop icons at startup and never changes the block. The allow warnings use native Windows popups.
 
 Build the standalone preview package from a clean committed checkout:
 
@@ -52,7 +53,7 @@ The preview ZIP is not a release. Consult the handoff for integration commands, 
 
 ## Optional Windows-only GUI kit
 
-The optional Windows GUI kit is `kits/windows-only/`. On a fresh install it uses **T1A1S0R1**: TeamViewer, AnyDesk and RustDesk blocked; Splashtop allowed. This default intentionally differs from the primary integration path. The GUI offers Audit/Test, Enforce/Block, Remove/Undo, and status functions. Use the kit's `START-HERE.bat` on Windows and follow its prompts.
+The optional Windows GUI kit is `kits/windows-only/`. On a fresh install it uses **T1A1S0R1**: TeamViewer, AnyDesk and RustDesk blocked; Splashtop allowed. This matches the primary integration path. The GUI offers Audit/Test, Enforce/Block, Remove/Undo, and status functions. Use the kit's `START-HERE.bat` on Windows and follow its prompts.
 
 ## How the policy works
 

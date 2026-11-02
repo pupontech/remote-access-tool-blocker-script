@@ -13,7 +13,8 @@ Use a disposable Windows 10/11 test PC, not a production support endpoint. Keep 
 For the primary no-GUI integration path, acceptance should include:
 
 1. Install from an elevated 64-bit PowerShell host and confirm the resulting policy state and shared-desktop toggle.
-2. Confirm the `T1A1S1R1` policy blocks representative TeamViewer, AnyDesk, Splashtop, and RustDesk starts. Capture the relevant CodeIntegrity event evidence.
+2. Confirm the `T1A1S0R1` policy blocks representative TeamViewer, AnyDesk and RustDesk starts and does NOT block Splashtop. Capture the relevant CodeIntegrity event evidence.
+5. Confirm the `\RemoteAccessToolBlocker\Restore desktop icons` task exists and runs as SYSTEM at startup, `C:\RemoteAccessToolBlocker` is not writable by a standard user, deleted/changed icons return after a restart, and `Stop Restoring Icons.bat` / `Start Restoring Icons.bat` remove and restore the task.
 3. Exercise the toggle's UAC prompt, cancellation behavior, `UNBLOCK` confirmation, and restoration path. Confirm only this project's fixed policy ID is removed or restored.
 4. On a Windows build that requires restart, verify the actual state transition after reboot.
 

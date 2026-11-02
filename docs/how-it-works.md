@@ -1,6 +1,6 @@
 # How it works
 
-This project applies Windows App Control (WDAC) deny rules for selected remote-access tools. The primary integration path is the no-GUI **T1A1S1R1** desktop toggle; the optional Windows-only GUI kit uses **T1A1S0R1** on a fresh install.
+This project applies Windows App Control (WDAC) deny rules for selected remote-access tools. Both the primary no-GUI desktop toggle and the optional Windows-only GUI kit use **T1A1S0R1** (Splashtop allowed).
 
 ## Policy source and rules
 
@@ -12,13 +12,13 @@ The policy has the fixed ID `{2D13BFB7-4304-4847-9CDD-37820D3EE9B7}`. Reusing th
 
 ## Deployment paths and toggle variants
 
-### Primary: no-GUI integration (`T1A1S1R1`)
+### Primary: no-GUI integration (`T1A1S0R1`)
 
-The script integration installs the Enforce policy with TeamViewer, AnyDesk, Splashtop and RustDesk all blocked. It creates separate **Allow Remote Access** and **Block Remote Access** desktop controls before enforcing the policy. Allowing requires administrator approval and three native Windows anti-scam dialogs with an English/Hebrew selector. Only the first dialog asks you to type, and only one sentence: the exact sentence shown, in the selected language. Yes stays disabled until it matches and is revalidated on click; switching language clears the entry, locks Yes again and gives the dialog the right-to-left Hebrew reading direction without rebuilding the window. The second and third dialogs ask for nothing — they are plain Yes/No/Cancel confirmations, and the language choice carries forward. No remains the default button. Blocking reinstalls the policy directly, without typing or keyboard pauses. `START-HERE.bat` is the double-click setup entry point; the raw controller remains available for elevated integrations. This path has no full GUI, service, scheduled task, or automatic unblock. See [the integration handoff](script-integration-handoff.md).
+The script integration installs the Enforce policy with TeamViewer, AnyDesk and RustDesk blocked and Splashtop allowed. It creates separate **Allow Remote Access** and **Block Remote Access** desktop controls before enforcing the policy. Allowing requires administrator approval and three native Windows anti-scam dialogs with an English/Hebrew selector. Only the first dialog asks you to type, and only one sentence: the exact sentence shown, in the selected language. Yes stays disabled until it matches and is revalidated on click; switching language clears the entry, locks Yes again and gives the dialog the right-to-left Hebrew reading direction without rebuilding the window. The second and third dialogs ask for nothing — they are plain Yes/No/Cancel confirmations, and the language choice carries forward. Yes is the default button (disabled on the first dialog until the sentence matches) and the buttons are centered; Escape cancels. Blocking reinstalls the policy directly, without typing or keyboard pauses. `START-HERE.bat` is the double-click setup entry point; the raw controller remains available for elevated integrations. This path has no full GUI, service, or automatic unblock. Setup also saves both icons in `C:\RemoteAccessToolBlocker\DesktopIcons` and registers one SYSTEM startup task (`\RemoteAccessToolBlocker\Restore desktop icons`) whose only action is cmd's built-in `copy`, putting deleted or changed icons back at every startup; it never changes the block. `Stop Restoring Icons.bat` in that folder removes the task, `Start Restoring Icons.bat` puts it back. Setup locks `C:\RemoteAccessToolBlocker` to Administrators/SYSTEM (Users read-only) before registering the task. See [the integration handoff](script-integration-handoff.md).
 
 ### Optional: Windows-only GUI kit (`T1A1S0R1`)
 
-The Windows-only kit at `kits/windows-only/` retains the GUI and defaults to TeamViewer, AnyDesk and RustDesk blocked, with Splashtop allowed. The four switches correspond to TeamViewer (T), AnyDesk (A), Splashtop (S), and RustDesk (R). Its defaults differ intentionally from the primary integration path. The policy variants encode toggle choices in the policy friendly name.
+The Windows-only kit at `kits/windows-only/` retains the GUI and defaults to TeamViewer, AnyDesk and RustDesk blocked, with Splashtop allowed. The four switches correspond to TeamViewer (T), AnyDesk (A), Splashtop (S), and RustDesk (R). Its defaults match the primary integration path. The policy variants encode toggle choices in the policy friendly name.
 
 The checked-in policies include only selected signers. Optional dual-use publishers are excluded to reduce the chance of blocking legitimate software. Unknown, unsigned, uncatalogued, or certificate-less tools may not be covered; this is not universal coverage.
 

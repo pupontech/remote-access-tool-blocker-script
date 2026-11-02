@@ -1,7 +1,8 @@
 $script:ModuleRoot = $PSScriptRoot
 $ErrorActionPreference = 'Stop'
 $script:PolicyGuid = '{2D13BFB7-4304-4847-9CDD-37820D3EE9B7}'
-$script:AllBlockedVariant = 'T1A1S1R1'
+# TeamViewer, AnyDesk and RustDesk blocked; Splashtop allowed (our own support tool).
+$script:DefaultVariant = 'T1A1S0R1'
 $script:WindowsPowerShellPath = if ($env:SystemRoot) { Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe' } else { '' }
 
 function Get-RemoteAccessProtectionInstallRoot {
@@ -33,12 +34,12 @@ function Assert-RemoteAccessProtectionWindows {
 function Resolve-RemoteAccessProtectionSource {
     $moduleRoot = $script:ModuleRoot
     $repoRoot = Split-Path $moduleRoot -Parent
-    if (Test-Path -LiteralPath (Join-Path $moduleRoot 'policy\variants\RmmBlock-Enforce-T1A1S1R1.cip')) {
+    if (Test-Path -LiteralPath (Join-Path $moduleRoot 'policy\variants\RmmBlock-Enforce-T1A1S0R1.cip')) {
         $assetRoot = $moduleRoot
-    } elseif (Test-Path -LiteralPath (Join-Path $repoRoot 'policy\variants\RmmBlock-Enforce-T1A1S1R1.cip')) {
+    } elseif (Test-Path -LiteralPath (Join-Path $repoRoot 'policy\variants\RmmBlock-Enforce-T1A1S0R1.cip')) {
         $assetRoot = $repoRoot
     } else {
-        throw 'The all-blocked policy is missing. Copy the policy folder beside the integration scripts.'
+        throw 'The default blocking policy is missing. Copy the policy folder beside the integration scripts.'
     }
 
     $appControlRoot = Join-Path $assetRoot 'src\appcontrol'
@@ -149,14 +150,14 @@ function Invoke-RemoteAccessProtectionInstaller {
     $installer = Get-InstalledRemoteAccessProtectionInstaller -InstallRoot $InstallRoot
     $policyDir = Join-Path $InstallRoot 'policy'
     if (-not (Test-Path -LiteralPath $policyDir)) { throw "Installed policy directory is missing: $policyDir" }
-    if ($Mode -eq 'Enforce' -and -not (Test-Path -LiteralPath (Join-Path $policyDir "variants\RmmBlock-Enforce-$($script:AllBlockedVariant).cip"))) {
-        throw "All-blocked policy variant is missing from $policyDir."
+    if ($Mode -eq 'Enforce' -and -not (Test-Path -LiteralPath (Join-Path $policyDir "variants\RmmBlock-Enforce-$($script:DefaultVariant).cip"))) {
+        throw "Default blocking policy variant is missing from $policyDir."
     }
 
     $quotedInstaller = '"{0}"' -f $installer
     $quotedPolicyDir = '"{0}"' -f $policyDir
     $arguments = @('-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-File', $quotedInstaller, '-Mode', $Mode, '-PolicyDir', $quotedPolicyDir)
-    if ($Mode -eq 'Enforce') { $arguments += @('-Variant', $script:AllBlockedVariant) }
+    if ($Mode -eq 'Enforce') { $arguments += @('-Variant', $script:DefaultVariant) }
     $argumentLine = $arguments -join ' '
     $process = Start-Process -FilePath $script:WindowsPowerShellPath -ArgumentList $argumentLine -Wait -PassThru -NoNewWindow
     if ($Mode -eq 'Remove' -and $process.ExitCode -eq 6) { throw [OperationCanceledException]::new('Cancelled. Protection was not removed.') }
@@ -178,9 +179,9 @@ function Set-RemoteAccessProtection {
         if ($actual.State -eq 'Unknown') { throw "Policy install could not be verified: $($actual.Reason)" }
         if ($actual.State -ne 'Blocked') { throw 'Policy engine returned success, but the remote-access block is not active.' }
         if (-not (Test-Path -LiteralPath (Join-Path $env:SystemRoot 'System32\CiTool.exe'))) {
-            Write-Host 'All listed remote-access tools are blocked by the staged policy after the required restart.'
+            Write-Host 'TeamViewer, AnyDesk and RustDesk are blocked by the staged policy after the required restart (Splashtop is allowed).'
         } else {
-            Write-Host 'All listed remote-access tools are blocked by the enforced policy.'
+            Write-Host 'TeamViewer, AnyDesk and RustDesk are blocked by the enforced policy (Splashtop is allowed).'
         }
         return
     }
@@ -261,6 +262,157 @@ function New-RemoteAccessProtectionShortcut {
     if (Test-Path -LiteralPath $legacyShortcut) { Remove-Item -LiteralPath $legacyShortcut -Force }
 }
 
+function Get-RemoteAccessProtectionRecoveryRoot {
+    # Same folder Install-RmmAppControl uses for the standalone revert tool.
+    if (-not $env:SystemDrive) { throw 'SystemDrive is not set.' }
+    Join-Path ($env:SystemDrive + '\') 'RemoteAccessToolBlocker'
+}
+
+function Get-RemoteAccessProtectionFolderWeakness {
+    # Returns the first file/folder under $Path that someone other than Administrators,
+    # SYSTEM or TrustedInstaller can change (or own), or $null when the tree is locked.
+    # A SYSTEM task copies from here and admins run the Allow shortcut elevated, so a
+    # user-writable copy would be a privilege-escalation route.
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $trusted = @('S-1-5-32-544', 'S-1-5-18', 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')
+    $writeRights = [System.Security.AccessControl.FileSystemRights]'WriteData, AppendData, WriteExtendedAttributes, WriteAttributes, Delete, DeleteSubdirectoriesAndFiles, ChangePermissions, TakeOwnership'
+    $items = @(Get-Item -LiteralPath $Path -Force) + @(Get-ChildItem -LiteralPath $Path -Recurse -Force -ErrorAction Stop)
+    foreach ($item in $items) {
+        $acl = Get-Acl -LiteralPath $item.FullName
+        $owner = $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
+        if ($trusted -notcontains $owner) { return "$($item.FullName) (owner $($acl.Owner))" }
+        foreach ($rule in $acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier])) {
+            if ($rule.AccessControlType -ne [System.Security.AccessControl.AccessControlType]::Allow) { continue }
+            if ($trusted -contains $rule.IdentityReference.Value) { continue }
+            if (($rule.FileSystemRights -band $writeRights) -ne 0) { return "$($item.FullName) ($($rule.IdentityReference.Value) can write)" }
+        }
+    }
+    return $null
+}
+
+function Protect-RemoteAccessProtectionFolder {
+    # Administrators + SYSTEM full control, Users read/execute, nothing inherited from C:\
+    # (whose default ACL lets every signed-in user modify new subfolders).
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $icacls = Join-Path $env:SystemRoot 'System32\icacls.exe'
+    & $icacls $Path /setowner '*S-1-5-32-544' /T /C /Q | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Could not set the owner of $Path (icacls exit $LASTEXITCODE)." }
+    & $icacls $Path /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' /Q | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Could not lock $Path (icacls exit $LASTEXITCODE)." }
+    if (@(Get-ChildItem -LiteralPath $Path -Force).Count -gt 0) {
+        & $icacls (Join-Path $Path '*') /reset /T /C /Q | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Could not reset permissions under $Path (icacls exit $LASTEXITCODE)." }
+    }
+    $weak = Get-RemoteAccessProtectionFolderWeakness -Path $Path
+    if ($weak) { throw "Folder is still writable by non-administrators: $weak" }
+}
+
+function Get-RemoteAccessProtectionIconRestoreFiles {
+    # The two helper .bat files and README written into DesktopIcons. ASCII, CRLF.
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][string]$TaskFullName)
+
+    $elevate = @(
+        '@echo off',
+        'setlocal',
+        'net session >nul 2>&1',
+        'if errorlevel 1 (',
+        '    echo Asking for administrator rights ...',
+        '    powershell.exe -NoProfile -Command "Start-Process -FilePath ''%~f0'' -Verb RunAs"',
+        '    exit /b',
+        ')'
+    )
+    $stop = $elevate + @(
+        'schtasks.exe /Delete /TN "' + $TaskFullName + '" /F',
+        'if errorlevel 1 (echo The restore task was not found or could not be removed.) else (echo Icons will no longer be put back at startup. The current icons were left in place.)',
+        'echo To turn it back on, run "Start Restoring Icons.bat" in this folder.',
+        'pause'
+    )
+    $start = $elevate + @(
+        'schtasks.exe /Create /TN "' + $TaskFullName + '" /XML "%~dp0RestoreDesktopIcons.xml" /F',
+        'if errorlevel 1 (echo Could not create the restore task. & pause & exit /b 1)',
+        'schtasks.exe /Run /TN "' + $TaskFullName + '" >nul',
+        'echo The icons are restored now and will be put back at every startup.',
+        'pause'
+    )
+    $readme = @(
+        'Remote-access tool block - desktop icon restore',
+        '',
+        'At every startup a scheduled task (' + $TaskFullName + ', runs as SYSTEM)',
+        'copies the two .lnk files in this folder onto the shared Public Desktop, so the',
+        'Allow Remote Access and Block Remote Access icons come back if someone deletes',
+        'or changes them. It only copies these two files; it never changes the block.',
+        '',
+        '    Stop Restoring Icons.bat    remove the startup task (icons stay where they are)',
+        '    Start Restoring Icons.bat   put the startup task back and restore the icons now',
+        '',
+        'Only administrators can change this folder. Running START-HERE again refreshes it.'
+    )
+    @{
+        'Stop Restoring Icons.bat'  = ($stop -join "`r`n") + "`r`n"
+        'Start Restoring Icons.bat' = ($start -join "`r`n") + "`r`n"
+        'README.txt'                = ($readme -join "`r`n") + "`r`n"
+    }
+}
+
+function Get-RemoteAccessProtectionIconRestoreArguments {
+    # cmd.exe arguments for the startup task: one built-in copy, overwriting changed icons.
+    param(
+        [Parameter(Mandatory = $true)][string]$IconDir,
+        [Parameter(Mandatory = $true)][string]$DesktopPath
+    )
+    '/d /c copy /y "{0}\*.lnk" "{1}"' -f $IconDir.TrimEnd('\'), $DesktopPath.TrimEnd('\')
+}
+
+function Install-RemoteAccessProtectionIconRestore {
+    # Keeps the Allow/Block desktop icons in place: saves copies in a locked folder and
+    # registers a SYSTEM startup task whose only action is cmd's built-in copy. No script
+    # runs at startup and nothing here can change the policy.
+    [CmdletBinding()]
+    param(
+        [string]$RecoveryRoot = (Get-RemoteAccessProtectionRecoveryRoot),
+        [string]$DesktopPath = [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonDesktopDirectory),
+        [switch]$SkipTask,
+        [switch]$SkipLock
+    )
+
+    $iconDir = Join-Path $RecoveryRoot 'DesktopIcons'
+    New-Item -ItemType Directory -Force -Path $iconDir | Out-Null
+    foreach ($name in @('Allow Remote Access.lnk', 'Block Remote Access.lnk')) {
+        $source = Join-Path $DesktopPath $name
+        if (-not (Test-Path -LiteralPath $source)) { throw "Desktop icon to save is missing: $source" }
+        Copy-Item -LiteralPath $source -Destination (Join-Path $iconDir $name) -Force
+    }
+    $taskPath = '\RemoteAccessToolBlocker\'
+    $taskName = 'Restore desktop icons'
+    $files = Get-RemoteAccessProtectionIconRestoreFiles -TaskFullName ($taskPath + $taskName)
+    foreach ($file in $files.Keys) {
+        [System.IO.File]::WriteAllText((Join-Path $iconDir $file), $files[$file], [System.Text.Encoding]::ASCII)
+    }
+
+    if (-not $SkipLock) { Protect-RemoteAccessProtectionFolder -Path $RecoveryRoot }
+    if ($SkipTask) { return $iconDir }
+
+    $cmd = Join-Path $env:SystemRoot 'System32\cmd.exe'
+    $copyArgs = Get-RemoteAccessProtectionIconRestoreArguments -IconDir $iconDir -DesktopPath $DesktopPath
+    $action = New-ScheduledTaskAction -Execute $cmd -Argument $copyArgs
+    $trigger = New-ScheduledTaskTrigger -AtStartup
+    $principal = New-ScheduledTaskPrincipal -UserId 'S-1-5-18' -LogonType ServiceAccount -RunLevel Highest
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 2)
+    $description = 'Puts the Allow/Block Remote Access icons back on the shared desktop at startup. Only copies two shortcut files; never changes the block. Turn off: ' + (Join-Path $iconDir 'Stop Restoring Icons.bat')
+    $task = Register-ScheduledTask -TaskPath $taskPath -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description $description -Force
+    if (-not $task) { throw 'The desktop icon restore task was not registered.' }
+    # Saved so "Start Restoring Icons.bat" can recreate the task without PowerShell modules.
+    $xml = Export-ScheduledTask -TaskPath $taskPath -TaskName $taskName
+    [System.IO.File]::WriteAllText((Join-Path $iconDir 'RestoreDesktopIcons.xml'), $xml, [System.Text.Encoding]::Unicode)
+    Write-Host "Desktop icons will be restored at every startup. To stop: $(Join-Path $iconDir 'Stop Restoring Icons.bat')"
+    return $iconDir
+}
+
 function Set-RemoteAccessProtectionPolicyDefaults {
     [CmdletBinding()]
     param(
@@ -270,8 +422,8 @@ function Set-RemoteAccessProtectionPolicyDefaults {
 
     foreach ($mode in 'Enforce', 'Audit') {
         foreach ($extension in 'cip', 'xml') {
-            $source = Join-Path $SourcePolicyDir "variants\RmmBlock-$mode-$($script:AllBlockedVariant).$extension"
-            if (-not (Test-Path -LiteralPath $source)) { throw "All-blocked $mode.$extension policy is missing: $source" }
+            $source = Join-Path $SourcePolicyDir "variants\RmmBlock-$mode-$($script:DefaultVariant).$extension"
+            if (-not (Test-Path -LiteralPath $source)) { throw "Default $mode.$extension policy is missing: $source" }
             $target = Join-Path $TargetPolicyDir "RmmBlock-$mode.$extension"
             Copy-Item -LiteralPath $source -Destination $target -Force
         }
@@ -289,8 +441,8 @@ function Install-RemoteAccessProtection {
     if (-not (Test-RemoteAccessProtectionAdministrator)) { throw 'Run the host script as administrator before installing remote-access protection.' }
     $source = Resolve-RemoteAccessProtectionSource
     if (-not (Test-Path -LiteralPath $source.PolicyDir)) { throw "Policy directory not found: $($source.PolicyDir)" }
-    $allBlocked = Join-Path $source.PolicyDir "variants\RmmBlock-Enforce-$($script:AllBlockedVariant).cip"
-    if (-not (Test-Path -LiteralPath $allBlocked)) { throw "All-blocked policy is missing: $allBlocked" }
+    $defaultPolicy = Join-Path $source.PolicyDir "variants\RmmBlock-Enforce-$($script:DefaultVariant).cip"
+    if (-not (Test-Path -LiteralPath $defaultPolicy)) { throw "Default blocking policy is missing: $defaultPolicy" }
 
     $targetPolicy = Join-Path $InstallRoot 'policy'
     New-Item -ItemType Directory -Force -Path $targetPolicy | Out-Null
@@ -329,6 +481,12 @@ function Install-RemoteAccessProtection {
     }
 
     New-RemoteAccessProtectionShortcut -InstallRoot $InstallRoot
+    # Icon restore is a convenience: if it fails, still apply the block and say so loudly.
+    try {
+        Install-RemoteAccessProtectionIconRestore | Out-Null
+    } catch {
+        Write-Host ('WARNING: desktop icons will NOT be restored automatically: ' + $_.Exception.Message) -ForegroundColor Red
+    }
     Set-RemoteAccessProtection -State Blocked -InstallRoot $InstallRoot
     Write-Host 'Install complete. Use Allow Remote Access only for verified support; Block Remote Access restores protection.'
 }

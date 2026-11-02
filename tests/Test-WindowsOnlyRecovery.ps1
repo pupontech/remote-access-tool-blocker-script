@@ -1,7 +1,7 @@
 # Scratch-only behavior proof: no policy installer, registry or native Windows calls.
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$installer = Join-Path $root 'src/appcontrol/Install-RmmAppControl.v2026-10-11.3.ps1'
+$installer = Join-Path $root 'src/appcontrol/Install-RmmAppControl.v2026-11-02.1.ps1'
 $tokens = $null; $errors = $null
 $ast = [Management.Automation.Language.Parser]::ParseFile($installer, [ref]$tokens, [ref]$errors)
 if ($errors.Count) { throw ($errors | Out-String) }

@@ -44,7 +44,7 @@ cp -R "$ROOT/policy/." "$STAGE/policy/"
 rm -f "$STAGE/policy/summary.txt"
 for mode in Enforce Audit; do
     for extension in cip xml; do
-        cp "$ROOT/policy/variants/RmmBlock-$mode-T1A1S1R1.$extension" "$STAGE/policy/RmmBlock-$mode.$extension"
+        cp "$ROOT/policy/variants/RmmBlock-$mode-T1A1S0R1.$extension" "$STAGE/policy/RmmBlock-$mode.$extension"
     done
 done
 

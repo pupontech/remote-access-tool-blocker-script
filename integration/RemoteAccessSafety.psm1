@@ -156,6 +156,8 @@ function New-RemoteAccessSafetyDialog {
     $footer = New-Object System.Windows.Forms.TableLayoutPanel
     $footer.Dock = [System.Windows.Forms.DockStyle]::Fill
     $footer.ColumnCount = 1
+    # Full-width column so the button row can be centered inside it.
+    [void]$footer.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
     $footer.AutoSize = $true
     $footer.RowCount = if ($requiresPhrase) { 4 } else { 1 }
 
@@ -193,13 +195,15 @@ function New-RemoteAccessSafetyDialog {
     foreach ($button in @($yesButton, $noButton, $cancelButton)) { $button.Size = New-Object System.Drawing.Size(110, 32) }
     $noButton.DialogResult = [System.Windows.Forms.DialogResult]::No
     $cancelButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-    $noButton.TabIndex = 0
-    $cancelButton.TabIndex = 1
-    $yesButton.TabIndex = 2
+    $yesButton.TabIndex = 0
+    $noButton.TabIndex = 1
+    $cancelButton.TabIndex = 2
 
     $buttons = New-Object System.Windows.Forms.FlowLayoutPanel
-    $buttons.Dock = [System.Windows.Forms.DockStyle]::Fill
+    # Anchor None (not Dock Fill) centers the auto-sized button row in its cell.
+    $buttons.Anchor = [System.Windows.Forms.AnchorStyles]::None
     $buttons.AutoSize = $true
+    $buttons.AutoSizeMode = [System.Windows.Forms.AutoSizeMode]::GrowAndShrink
     $buttons.WrapContents = $false
     $buttons.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
     [void]$buttons.Controls.Add($yesButton)
@@ -211,7 +215,9 @@ function New-RemoteAccessSafetyDialog {
     [void]$root.Controls.Add($warningBox, 0, 1)
     [void]$root.Controls.Add($footer, 0, 2)
     [void]$form.Controls.Add($root)
-    $form.AcceptButton = $noButton
+    # Yes is the default (owner decision, 0.1.7). On stage 1 it stays disabled until the
+    # exact sentence is typed, so Enter cannot approve before that; Escape is still Cancel.
+    $form.AcceptButton = $yesButton
     $form.CancelButton = $cancelButton
 
     $tag = [pscustomobject]@{
@@ -328,6 +334,11 @@ function New-RemoteAccessSafetyDialog {
         } else {
             & $renderSelectedLanguage
         }
+    }.GetNewClosure())
+
+    $form.add_Shown({
+        # Start in the sentence box on stage 1; on stages 2/3 start on Yes.
+        if ($tag.RequiresPhrase) { [void]$tag.InputBox.Focus() } else { [void]$tag.YesButton.Focus() }
     }.GetNewClosure())
 
     if ($requiresPhrase) {

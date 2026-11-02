@@ -2,6 +2,14 @@
 
 Notable project changes. Historical dates refer to the versioning dates carried in script filenames.
 
+## 0.1.7-preview.1 — Splashtop allowed, desktop icons restored at startup, Yes default
+
+- Default variant is now **T1A1S0R1**: TeamViewer, AnyDesk and RustDesk blocked; **Splashtop allowed** (owner decision).
+- Setup also saves both icons in `C:\RemoteAccessToolBlocker\DesktopIcons` and registers one SYSTEM startup task (`\RemoteAccessToolBlocker\Restore desktop icons`) whose only action is cmd's built-in `copy`, putting deleted or changed icons back at every startup; it never changes the block. `Stop Restoring Icons.bat` in that folder removes the task, `Start Restoring Icons.bat` puts it back. Setup locks `C:\RemoteAccessToolBlocker` to Administrators/SYSTEM (Users read-only) before registering the task.
+- Lock the standalone revert folder `C:\RemoteAccessToolBlocker` in the policy engine too. By default every signed-in user can modify a new folder under `C:\`, and admins run its Allow Remote Access.bat elevated. Engine renamed to `Install-RmmAppControl.v2026-11-02.1.ps1`.
+- Safety dialogs: **Yes is the default button** and the buttons are centered (owner decision). On dialog 1 Yes stays disabled until the exact sentence is typed, so Enter cannot approve before that; dialogs 2 and 3 now approve on Enter. Escape still cancels.
+- New `tests/Test-DesktopIconRestore.ps1` (saved icons, the exact startup copy restoring deleted/changed icons, Stop/Start helpers, unlocked-folder refusal). Not proven by tests: live task registration, folder lock and restart on a real endpoint.
+
 ## 0.1.6-preview.1 — Native Hebrew-switch crash and administrator shortcut
 
 - Reproduce the Windows PowerShell 5.1 hard exit by sending native ComboBox selection notifications while the production confirmation dialog is modal. The previous managed timer test did not cover this notification path.

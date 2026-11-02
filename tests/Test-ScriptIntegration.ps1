@@ -15,7 +15,7 @@ $sourceLayout = & $moduleInfo { Resolve-RemoteAccessProtectionSource }
 if ([System.IO.Path]::GetFullPath($sourceLayout.AssetRoot) -ne [System.IO.Path]::GetFullPath($repoRoot)) {
     throw "Source layout resolved to '$($sourceLayout.AssetRoot)' instead of '$repoRoot'"
 }
-if (-not (Test-Path -LiteralPath (Join-Path $sourceLayout.PolicyDir 'variants\RmmBlock-Enforce-T1A1S1R1.cip'))) {
+if (-not (Test-Path -LiteralPath (Join-Path $sourceLayout.PolicyDir 'variants\RmmBlock-Enforce-T1A1S0R1.cip'))) {
     throw 'Source layout did not resolve the all-blocked policy payload.'
 }
 $tempBase = if ($env:TMPDIR) { $env:TMPDIR } elseif ($env:TEMP) { $env:TEMP } else { [System.IO.Path]::GetTempPath() }
@@ -28,7 +28,7 @@ try {
     New-Item -ItemType Directory -Force -Path $targetPolicy | Out-Null
     foreach ($mode in 'Enforce', 'Audit') {
         foreach ($extension in 'cip', 'xml') {
-            $variant = Join-Path $sourceVariants "RmmBlock-$mode-T1A1S1R1.$extension"
+            $variant = Join-Path $sourceVariants "RmmBlock-$mode-T1A1S0R1.$extension"
             $baseline = Join-Path $targetPolicy "RmmBlock-$mode.$extension"
             [System.IO.File]::WriteAllText($variant, "all-blocked-$mode-$extension")
             [System.IO.File]::WriteAllText($baseline, 'legacy-upstream-default')
@@ -60,23 +60,23 @@ function Assert-State([string]$Name, [string]$Json, [string]$Expected) {
 
 $enforcedJson = @{
     OperationResult = 0
-    Policies = @(@{ PolicyID = $guid; FriendlyName = 'Remote Access Tool Blocker - Enforce [T1A1S1R1]'; IsEnforced = $true })
+    Policies = @(@{ PolicyID = $guid; FriendlyName = 'Remote Access Tool Blocker - Enforce [T1A1S0R1]'; IsEnforced = $true })
 } | ConvertTo-Json -Depth 5
 Assert-State 'Enforced policy is blocked' $enforcedJson 'Blocked'
 $enforcedStatus = ConvertFrom-RemoteAccessPolicyList -Json $enforcedJson
-if ($enforcedStatus.Variant -ne 'T1A1S1R1') { throw "Variant parser returned '$($enforcedStatus.Variant)' instead of T1A1S1R1" }
+if ($enforcedStatus.Variant -ne 'T1A1S0R1') { throw "Variant parser returned '$($enforcedStatus.Variant)' instead of T1A1S0R1" }
 Assert-State 'Any enforced project variant is treated as blocked' (@{
     OperationResult = 0
     Policies = @(@{ PolicyID = $guid; FriendlyName = 'Remote Access Tool Blocker - Enforce [T1A1S0R1]'; IsEnforced = $true })
 } | ConvertTo-Json -Depth 5) 'Blocked'
 Assert-State 'Unverified enforce state fails closed' (@{
     OperationResult = 0
-    Policies = @(@{ PolicyID = $guid; FriendlyName = 'Remote Access Tool Blocker - Enforce [T1A1S1R1]'; IsEnforced = $false })
+    Policies = @(@{ PolicyID = $guid; FriendlyName = 'Remote Access Tool Blocker - Enforce [T1A1S0R1]'; IsEnforced = $false })
 } | ConvertTo-Json -Depth 5) 'Unknown'
 
 Assert-State 'Audit policy is not blocking' (@{
     OperationResult = 0
-    Policies = @(@{ PolicyID = $guid; FriendlyName = 'Remote Access Tool Blocker - Audit [T1A1S1R1]'; IsEnforced = $true })
+    Policies = @(@{ PolicyID = $guid; FriendlyName = 'Remote Access Tool Blocker - Audit [T1A1S0R1]'; IsEnforced = $true })
 } | ConvertTo-Json -Depth 5) 'Unblocked'
 
 Assert-State 'A different policy is untouched' (@{
@@ -93,7 +93,7 @@ Assert-State 'Malformed JSON is unknown' 'not-json' 'Unknown'
 $entry = Get-Content -Raw (Join-Path $repoRoot 'integration\Invoke-RemoteAccessProtection.ps1')
 $module = Get-Content -Raw $modulePath
 $tests = @(
-    @{ Name = 'all four switchable tools default blocked'; Text = $module; Pattern = 'T1A1S1R1' },
+    @{ Name = 'default blocks TeamViewer, AnyDesk and RustDesk; Splashtop allowed'; Text = $module; Pattern = 'T1A1S0R1' },
     @{ Name = 'desktop shortcut lives on common desktop'; Text = $module; Pattern = 'CommonDesktopDirectory' },
     @{ Name = 'desktop shortcut launches toggle action'; Text = $module; Pattern = "Action = 'Allow'" },
     @{ Name = 'entry point defaults to install'; Text = $entry; Pattern = 'Action = ''Install''' },
@@ -133,7 +133,7 @@ if ($module -match 'Export-ModuleMember[^\r\n]*Set-RemoteAccessProtection') {
     throw 'Direct policy removal must not be exported as a routine integration command.'
 }
 if ($module -notmatch 'Invoke-RemoteAccessProtectionAllow') { throw 'Named allow action missing.' }
-$engineText = Get-Content -Raw (Join-Path $repoRoot 'src/appcontrol/Install-RmmAppControl.v2026-10-11.3.ps1')
+$engineText = Get-Content -Raw (Join-Path $repoRoot 'src/appcontrol/Install-RmmAppControl.v2026-11-02.1.ps1')
 if ($engineText -notmatch 'Request-AllowRemoteAccessConsent') { throw 'Engine consent gate missing.' }
 
 $revertLauncher = Get-Content -Raw (Join-Path $repoRoot 'revert\Run-Revert.bat')
@@ -141,7 +141,7 @@ $winOnlyRevertIndex = $revertLauncher.IndexOf('Revert-RemoteAccessBlock-WinOnly.
 if ($winOnlyRevertIndex -lt 0 -or $revertLauncher.Contains('Revert-RemoteAccessBlock.v*.ps1')) {
     throw 'Revert launcher must select only the Windows-only variant.'
 }
-$installer = Get-Content -Raw (Join-Path $repoRoot 'src\appcontrol\Install-RmmAppControl.v2026-10-11.3.ps1')
+$installer = Get-Content -Raw (Join-Path $repoRoot 'src\appcontrol\Install-RmmAppControl.v2026-11-02.1.ps1')
 $winOnlyRevert = Get-Content -Raw (Join-Path $repoRoot 'revert\Revert-RemoteAccessBlock-WinOnly.v2026-10-11.1.ps1')
 if ($installer -match 'Revert-RemoteAccessBlock[.]v[+*?]' -or $installer -match 'eset-remove-guide|ESET website list|handles the ESET') {
     throw 'App Control installer must copy only WinOnly revert and must not handle ESET guides.'

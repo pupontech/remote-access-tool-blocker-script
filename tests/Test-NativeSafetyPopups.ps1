@@ -175,7 +175,7 @@ $m=Get-Module RemoteAccessSafety
    if($dialog.Tag.WarningBox.Font.Size -lt 14 -or $dialog.Tag.WarningBox.TextAlign -ne [Windows.Forms.HorizontalAlignment]::Center){ throw 'Warning text must be large and centered' }
    if($dialog.Tag.PhraseLabel.Font.Size -lt 14 -or $dialog.Tag.PhraseLabel.TextAlign -ne [Drawing.ContentAlignment]::MiddleCenter){ throw 'Required sentence must be large and centered' }
    if($dialog.Tag.Instruction.TextAlign -ne [Drawing.ContentAlignment]::MiddleCenter){ throw 'Typing instruction must be centered' }
-   if(-not [object]::ReferenceEquals($dialog.AcceptButton,$dialog.Tag.NoButton)){ throw 'Default is not No' }
+   if(-not [object]::ReferenceEquals($dialog.AcceptButton,$dialog.Tag.YesButton)){ throw 'Default is not Yes' }
    if(-not [object]::ReferenceEquals($dialog.CancelButton,$dialog.Tag.CancelButton)){ throw 'Escape is not Cancel' }
    $rtl=$dialog.Tag.WarningBox.RightToLeft -eq [Windows.Forms.RightToLeft]::Yes
    if($rtl -ne ($language -eq 'he')){ throw "Stage 1 RTL does not match $language" }
@@ -187,7 +187,10 @@ $m=Get-Module RemoteAccessSafety
     if($null -ne $dialog.Tag.InputBox){ throw "Stage $stage must not create an input box" }
     if($null -ne $dialog.Tag.PhraseLabel){ throw "Stage $stage must not show a phrase label" }
     if(-not $dialog.Tag.YesButton.Enabled){ throw "Stage $stage must allow Yes without typing" }
-    if(-not [object]::ReferenceEquals($dialog.AcceptButton,$dialog.Tag.NoButton)){ throw "Stage $stage default is not No" }
+    if(-not [object]::ReferenceEquals($dialog.AcceptButton,$dialog.Tag.YesButton)){ throw "Stage $stage default is not Yes" }
+    $dialog.PerformLayout(); $panel=$dialog.Tag.ButtonPanel; $panel.Parent.PerformLayout()
+    $offCenter=[Math]::Abs(($panel.Left+$panel.Width/2)-($panel.Parent.ClientSize.Width/2))
+    if($offCenter -gt 4){ throw "Stage $stage buttons are not centered (off by $offCenter px)" }
     $rtl=$dialog.Tag.WarningBox.RightToLeft -eq [Windows.Forms.RightToLeft]::Yes
     if($rtl -ne ($language -eq 'he')){ throw "Stage $stage RTL does not match $language" }
    }finally{ $dialog.Dispose() }
@@ -391,7 +394,7 @@ try{
   if(-not (Test-Path -LiteralPath $resultFile)){ throw 'No native result file' }
   $result=[IO.File]::ReadAllText($resultFile)
   if($result -ne $case.Expected){ throw "Wrong result $($case.Case): $result" }
-  $records += [pscustomobject]@{Case=$case.Case;Dialogs=$case.Count;Result=$result;Native=$true;DefaultButton='No';TypedSentences=1;ConfirmOnlyStages=2;Language=$language}
+  $records += [pscustomobject]@{Case=$case.Case;Dialogs=$case.Count;Result=$result;Native=$true;DefaultButton='Yes';TypedSentences=1;ConfirmOnlyStages=2;Language=$language}
   Write-Host "PASS: native $($case.Case), result=$result."
   $process.Dispose();$process=$null
  }

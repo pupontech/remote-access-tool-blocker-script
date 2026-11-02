@@ -2,7 +2,7 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $tokens=$null; $errors=$null
-$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'src/appcontrol/Install-RmmAppControl.v2026-10-11.3.ps1'),[ref]$tokens,[ref]$errors)
+$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'src/appcontrol/Install-RmmAppControl.v2026-11-02.1.ps1'),[ref]$tokens,[ref]$errors)
 $branch=$null
 foreach($node in $ast.FindAll({param($n) $n -is [Management.Automation.Language.IfStatementAst]},$true)) {
     foreach($clause in $node.Clauses) {
