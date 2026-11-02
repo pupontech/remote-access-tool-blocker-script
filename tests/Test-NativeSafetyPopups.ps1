@@ -312,6 +312,20 @@ try{
    Write-Host "Native proof: $($case.Case) stage $stage"
    $title=[string]$catalogText.Title+' ('+$stage+'/3)'
    $window=Wait-Dialog $process $stage $title
+   if($case.Case -eq 'approve-all' -and $stage -eq 1){
+    # Exercise native combo-box notifications on the real modal confirmation route.
+    # The separate timer proof changes SelectedIndex from managed code only.
+    foreach($selection in @(1,0,1,0)){
+     $selector=Get-LanguageBox $window
+     $owner=[BilingualProbe]::GetParent($selector)
+     $controlId=[BilingualProbe]::GetWindowLong($selector,-12)
+     [void][BilingualProbe]::SendMessage($selector,0x014E,[IntPtr]$selection,[IntPtr]::Zero)
+     [void][BilingualProbe]::SendMessage($owner,0x0111,[IntPtr](($controlId -band 0xffff) -bor 0x10000),$selector)
+     $expectedLanguage=if($selection -eq 1){'he'}else{'en'}
+     $window=Wait-Dialog $process 1 ([string]$catalog.$expectedLanguage.Title+' (1/3)')
+     Save-Image $window ('modal-switch-'+$expectedLanguage+'.png')
+    }
+   }
    $yesText=[string]$catalogText.Yes
    $combo=Get-LanguageBox $window
    $itemCount=[BilingualProbe]::SendMessage($combo,0x0146,[IntPtr]::Zero,[IntPtr]::Zero).ToInt64()
