@@ -170,7 +170,9 @@ $m=Get-Module RemoteAccessSafety
   if($stepLog){ [IO.File]::AppendAllText($stepLog,("build stage 1 "+$language+"`n")) }
   $dialog=New-RemoteAccessSafetyDialog -Stage 1 -Language $language
   try{
-   if($dialog.Tag.YesButton.Enabled){ throw 'Yes initially enabled on stage 1' }
+   $expectedTrust=if($language -eq 'en'){'Trust'}else{-join ([char[]]@(0x05D0,0x05DE,0x05D5,0x05DF))}
+   if($dialog.Tag.YesButton.Text -cne $expectedTrust){ throw "Stage 1 approval button must say Trust in $language" }
+   if($dialog.Tag.YesButton.Enabled){ throw 'Trust initially enabled on stage 1' }
    if($null -eq $dialog.Tag.InputBox){ throw 'Stage 1 has no input box' }
    if($dialog.Tag.WarningBox.Font.Size -lt 14 -or $dialog.Tag.WarningBox.TextAlign -ne [Windows.Forms.HorizontalAlignment]::Center){ throw 'Warning text must be large and centered' }
    if($dialog.Tag.PhraseLabel.Font.Size -lt 14 -or $dialog.Tag.PhraseLabel.TextAlign -ne [Drawing.ContentAlignment]::MiddleCenter){ throw 'Required sentence must be large and centered' }
@@ -184,6 +186,7 @@ $m=Get-Module RemoteAccessSafety
    if($stepLog){ [IO.File]::AppendAllText($stepLog,("build stage "+$stage+" "+$language+"`n")) }
    $dialog=New-RemoteAccessSafetyDialog -Stage $stage -Language $language
    try{
+    if($dialog.Tag.YesButton.Text -cne $expectedTrust){ throw "Stage $stage approval button must say Trust in $language" }
     if($null -ne $dialog.Tag.InputBox){ throw "Stage $stage must not create an input box" }
     if($null -ne $dialog.Tag.PhraseLabel){ throw "Stage $stage must not show a phrase label" }
     if(-not $dialog.Tag.YesButton.Enabled){ throw "Stage $stage must allow Yes without typing" }
@@ -299,14 +302,16 @@ try{
   @{Case='cancel';Count=1;End='Cancel';Expected='False'},
   @{Case='close-window';Count=1;End='Close';Expected='False'},
   @{Case='approve-all';Count=3;End='Yes';Expected='True'},
-  @{Case='hebrew-dialog';Count=1;End='Yes';Language='he';Expected='True'}
+  @{Case='hebrew-dialog';Count=1;End='Yes';Language='he';Expected='True'},
+  @{Case='hebrew-approve-all';Count=3;End='Yes';Language='he';Expected='True'},
+  @{Case='hebrew-no-second';Count=2;End='No';Language='he';Expected='False'}
  )){
   $resultFile=Join-Path $fixture ($case.Case+'.txt')
   $errorFile=Join-Path $fixture ($case.Case+'.err')
   $script:ProbeError=$errorFile
   $script:ProbeLog=$errorFile+'.log'
   $extra=@{}
-  if($case.Language -eq 'he'){ $extra['RATB_PROBE_LANGUAGE']='he' }
+  if($case.Case -eq 'hebrew-dialog'){ $extra['RATB_PROBE_LANGUAGE']='he' }
   $process=Start-ProbeChild -ResultFile $resultFile -ErrorFile $errorFile -Extra $extra
   $stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
   $language=if($case.Language){[string]$case.Language}else{'en'}
@@ -314,6 +319,15 @@ try{
   for($stage=1;$stage -le $case.Count;$stage++){
    Write-Host "Native proof: $($case.Case) stage $stage"
    $title=[string]$catalogText.Title+' ('+$stage+'/3)'
+   if($language -eq 'he' -and $stage -eq 1 -and $case.Case -ne 'hebrew-dialog'){
+    $window=Wait-Dialog $process 1 ([string]$catalog.en.Title+' (1/3)')
+    $selector=Get-LanguageBox $window
+    $owner=[BilingualProbe]::GetParent($selector)
+    $controlId=[BilingualProbe]::GetWindowLong($selector,-12)
+    [void][BilingualProbe]::SendMessage($selector,0x014E,[IntPtr]1,[IntPtr]::Zero)
+    [void][BilingualProbe]::SendMessage($owner,0x0111,[IntPtr](($controlId -band 0xffff) -bor 0x10000),$selector)
+    Start-Sleep -Milliseconds 400
+   }
    $window=Wait-Dialog $process $stage $title
    if($case.Case -eq 'approve-all' -and $stage -eq 1){
     # Exercise native combo-box notifications on the real modal confirmation route.
@@ -394,7 +408,7 @@ try{
   if(-not (Test-Path -LiteralPath $resultFile)){ throw 'No native result file' }
   $result=[IO.File]::ReadAllText($resultFile)
   if($result -ne $case.Expected){ throw "Wrong result $($case.Case): $result" }
-  $records += [pscustomobject]@{Case=$case.Case;Dialogs=$case.Count;Result=$result;Native=$true;DefaultButton='Yes';TypedSentences=1;ConfirmOnlyStages=2;Language=$language}
+  $records += [pscustomobject]@{Case=$case.Case;Dialogs=$case.Count;Result=$result;Native=$true;DefaultButton=[string]$catalogText.Yes;TypedWords=1;ConfirmOnlyStages=2;Language=$language}
   Write-Host "PASS: native $($case.Case), result=$result."
   $process.Dispose();$process=$null
  }

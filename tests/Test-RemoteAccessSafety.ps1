@@ -32,6 +32,13 @@ foreach ($language in @('en', 'he')) {
 }
 $englishSentence = [string]$catalog.en.Stages[0].Phrase
 $hebrewSentence = [string]$catalog.he.Stages[0].Phrase
+$hebrewTrust = -join ([char[]]@(0x05D0, 0x05DE, 0x05D5, 0x05DF))
+Assert-True ($englishSentence -ceq 'trust') 'English approval must require only lowercase trust.'
+Assert-True ($hebrewSentence -ceq $hebrewTrust) 'Hebrew approval must require only the translated trust word.'
+Assert-True ($catalog.en.Yes -ceq 'Trust') 'English approval button must say Trust.'
+Assert-True ($catalog.he.Yes -ceq $hebrewTrust) 'Hebrew approval button must say the translated trust word.'
+Assert-True ($catalog.en.Instruction -ceq 'Type trust to unlock Trust:') 'English instruction must describe the trust word and button.'
+Assert-True ($catalog.he.Instruction.Contains($hebrewTrust)) 'Hebrew instruction must name the trust word.'
 
 foreach ($language in @('en', 'he')) {
     $sentence = [string]$catalog.$language.Stages[0].Phrase
@@ -41,7 +48,7 @@ foreach ($language in @('en', 'he')) {
     Assert-False (& $moduleInfo { param($t, $l) Test-RemoteAccessSafetyPhrase -Text $t -Language $l -Stage 1 } " $sentence" $language) 'Leading space was accepted.'
     Assert-False (& $moduleInfo { param($t, $l) Test-RemoteAccessSafetyPhrase -Text $t -Language $l -Stage 1 } "$sentence " $language) 'Trailing space was accepted.'
     if ($language -eq 'en') {
-        Assert-False (& $moduleInfo { param($t, $l) Test-RemoteAccessSafetyPhrase -Text $t -Language $l -Stage 1 } $sentence.ToLowerInvariant() $language) 'Wrong case was accepted.'
+        Assert-False (& $moduleInfo { param($t, $l) Test-RemoteAccessSafetyPhrase -Text $t -Language $l -Stage 1 } $sentence.ToUpperInvariant() $language) 'Wrong case was accepted.'
     }
     foreach ($stage in 2, 3) {
         Assert-False (& $moduleInfo { param($t, $l, $s) Test-RemoteAccessSafetyPhrase -Text $t -Language $l -Stage $s } $sentence $language $stage) "Stage $stage must never demand a phrase."
@@ -167,4 +174,4 @@ if (-not (& $m { param($t) Test-RemoteAccessSafetyPhrase -Text $t -Language he -
     if (Test-Path -LiteralPath $callerRoot) { Remove-Item -LiteralPath $callerRoot -Recurse -Force }
 }
 
-Write-Host "Remote access safety tests passed. One sentence only: EN '$englishSentence' / HE '$hebrewSentence'."
+Write-Host "Remote access safety tests passed. One word only: EN '$englishSentence' / HE '$hebrewSentence'."

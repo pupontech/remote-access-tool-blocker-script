@@ -2,6 +2,14 @@
 
 Notable project changes. Historical dates refer to the versioning dates carried in script filenames.
 
+## 0.1.8-preview.1 - Trust word and translated approval buttons
+
+- Replace the first dialog's full sentence with the exact lowercase word **`trust`** in English and **`אמון`** in Hebrew.
+- Label the approval button **Trust** / **אמון** on all three prompts. Keep the approval button centered and default; dialog 1 stays locked until the word matches. Dialogs 2 and 3 require no typing. No, Cancel, Escape, close and UI errors still refuse.
+- Preserve the anti-scam warnings, language-switch reset, stable Hebrew modal rendering, policy defaults and desktop icon restoration.
+- Extend the native Windows proof to check approval labels at every stage in both languages, full Hebrew approval and refusal, and the packaged catalog. Include the short human README and AI maintenance instructions in the new ZIP.
+- Existing installations must rerun START-HERE from the new extracted ZIP. Live enforcement, UAC, SYSTEM task registration and reboot acceptance remain owner checks.
+
 ## 0.1.7-preview.1 — Splashtop allowed, desktop icons restored at startup, Yes default
 
 - Default variant is now **T1A1S0R1**: TeamViewer, AnyDesk and RustDesk blocked; **Splashtop allowed** (owner decision).

@@ -2,15 +2,15 @@
   "en": {
     "LanguageName": "English",
     "Title": "Remote access safety confirmation",
-    "Yes": "Yes",
+    "Yes": "Trust",
     "No": "No",
     "Cancel": "Cancel",
     "LanguageLabel": "Language",
-    "Instruction": "Type this exact sentence to unlock Yes:",
+    "Instruction": "Type trust to unlock Trust:",
     "Stages": [
       {
         "Warning": "WARNING: Remote access can expose your files, passwords, and banking information.\n\nNever allow a stranger or an unexpected caller to connect. Caller ID is not proof.\n\nIf an unexpected caller asks for access, hang up. Independently find the company official number on a trusted website, bill, or card, then manually dial it.\n\nDo not use a number or link supplied by the caller, and do not trust search ads.\n\nNever share passwords or one-time codes, and never access your bank while connected.\n\nOnly proceed for a technician you know and trust in person, or support you independently contacted and verified.\n\nNo or Cancel keeps protection unchanged.",
-        "Phrase": "I checked this person myself and I trust them"
+        "Phrase": "trust"
       },
       {
         "Warning": "WARNING: You are about to remove a safety barrier. A scammer may steal your money or private information.\n\nNo or Cancel keeps protection unchanged.",
@@ -25,15 +25,15 @@
   "he": {
     "LanguageName": "עברית",
     "Title": "אישור בטיחות לגישה מרחוק",
-    "Yes": "כן",
+    "Yes": "אמון",
     "No": "לא",
     "Cancel": "ביטול",
     "LanguageLabel": "שפה",
-    "Instruction": "הקלד את המשפט הזה בדיוק כדי לאפשר את «כן»:",
+    "Instruction": "הקלד אמון כדי לאפשר את הכפתור «אמון»:",
     "Stages": [
       {
         "Warning": "אזהרה: גישה מרחוק עלולה לחשוף את הקבצים, הסיסמאות ופרטי הבנק שלך.\n\nלעולם אל תאפשר לאדם זר או למתקשר בלתי צפוי להתחבר. אין להסתמך על זיהוי המתקשר כהוכחה לזהותו.\n\nאם מתקשר בלתי צפוי מבקש גישה, נתק את השיחה. מצא בעצמך את מספר הטלפון הרשמי של החברה באתר מהימן, בחשבון או בכרטיס, וחייג אליו ידנית.\n\nאל תשתמש במספר או בקישור שהמתקשר מסר לך, ואל תסמוך על מודעות חיפוש.\n\nלעולם אל תמסור סיסמאות או קודים חד-פעמיים, ולעולם אל תיכנס לחשבון הבנק שלך בזמן חיבור מרחוק.\n\nהמשך רק אם מדובר בטכנאי שאתה מכיר וסומך עליו אישית, או בשירות תמיכה שפנית אליו בעצמך ואימתת שהוא אמיתי.\n\nבחירה ב«לא» או ב«ביטול» משאירה את ההגנה ללא שינוי.",
-        "Phrase": "בדקתי את האדם הזה בעצמי ואני סומך עליו"
+        "Phrase": "אמון"
       },
       {
         "Warning": "אזהרה: אתה עומד להסיר שכבת הגנה. נוכל עלול לגנוב את כספך או את המידע הפרטי שלך.\n\nבחירה ב«לא» או ב«ביטול» משאירה את ההגנה ללא שינוי.",

@@ -8,11 +8,11 @@ Windows 10/11 PowerShell scripts that block covered **TeamViewer, AnyDesk and Ru
 
 ### Download and use
 
-[Download the script ZIP](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.7-preview.1/remote-access-tool-blocker-script-only-0.1.7-preview.zip) · [Release notes](https://github.com/pupontech/remote-access-tool-blocker-script/releases/tag/v0.1.7-preview.1)
+[Download the script ZIP](https://github.com/pupontech/remote-access-tool-blocker-script/releases/download/v0.1.8-preview.1/remote-access-tool-blocker-script-only-0.1.8-preview.zip) · [Release notes](https://github.com/pupontech/remote-access-tool-blocker-script/releases/tag/v0.1.8-preview.1)
 
 1. Extract the whole ZIP into a new folder.
 2. Double-click **START-HERE.bat** and approve Windows administrator access. Rerun setup on each PC when upgrading.
-3. Use **Allow Remote Access** on the desktop for verified support. It asks for one sentence, then two more confirmations. **Enter approves the second and third dialogs.** No, Cancel or Escape refuses.
+3. Use **Allow Remote Access** on the desktop for verified support. Type `trust` in English or `אמון` in Hebrew, then choose **Trust / אמון** on all three prompts. **Enter approves the second and third dialogs.** No, Cancel or Escape refuses.
 4. Use **Block Remote Access** to block again. Close running remote tools before testing new launches; restart when instructed.
 
 The icons appear for every user. If automatic restoration was configured successfully, deleted or changed icons return at startup. Stop or restart restoration with the matching `.bat` files in `C:\RemoteAccessToolBlocker\DesktopIcons`; this does not change blocking.
@@ -50,15 +50,15 @@ The optional source kit under `kits/windows-only/` is not the script-only downlo
 ### Preserve these contracts
 
 1. **Policy identity:** retain `{2D13BFB7-4304-4847-9CDD-37820D3EE9B7}`. Change only this project's policy, never unrelated policies. Default variant is **T1A1S0R1**: covered TeamViewer, AnyDesk and RustDesk blocked; Splashtop allowed. App Control blocks new starts, not already-running processes. Do not claim universal signer coverage.
-2. **Setup and consent:** blocking needs no typed confirmation. Allow requires administrator approval, the exact sentence on dialog 1, then two further native confirmations. Yes is centered and default, but disabled on dialog 1 until the sentence matches. No, Cancel, Escape, close or UI failure refuses. Never add consent-bypass flags or unattended removal.
-3. **Languages:** preserve English/Hebrew switching, clear the sentence and disable Yes when switching, and carry the selected language through the dialogs. Keep the modal form and selector direction fixed. Defer rendering with `BeginInvoke`; apply RTL to text controls, not runtime form/selector direction changes. The latter caused Windows PowerShell 5.1 hard exits.
+2. **Setup and consent:** blocking needs no typed confirmation. Allow requires administrator approval, the exact word `trust` / `אמון` on dialog 1, then two further native confirmations. The Trust / אמון approval button is centered and default, but disabled on dialog 1 until the word matches. No, Cancel, Escape, close or UI failure refuses. Never add consent-bypass flags or unattended removal.
+3. **Languages:** preserve English/Hebrew switching, clear the word and disable Trust when switching, and carry the selected language through the dialogs. Keep the modal form and selector direction fixed. Defer rendering with `BeginInvoke`; apply RTL to text controls, not runtime form/selector direction changes. The latter caused Windows PowerShell 5.1 hard exits.
 4. **Desktop restoration:** the only scheduled task is `\RemoteAccessToolBlocker\Restore desktop icons`, SYSTEM SID `S-1-5-18`, **AtStartup only**. Its action copies only the two named shortcuts with `cmd.exe`; it must never change policy. Lock and read back recovery-folder permissions, check shared-desktop safety before registration, and preserve the Stop/Start helpers. Icon-restore failure warns while blocking setup continues.
 5. **Compatibility:** support Windows PowerShell 5.1 and 64-bit Windows paths. Keep `.ps1`/`.psm1` ASCII and `.bat` ASCII/CRLF. Keep translated text in the UTF-8 JSON catalog. Preserve attribution and license files.
 
-Required first-dialog sentences, matched exactly in the selected language:
+Required first-dialog words, matched exactly in the selected language:
 
-- English: `I checked this person myself and I trust them`
-- Hebrew: `בדקתי את האדם הזה בעצמי ואני סומך עליו`
+- English: `trust`
+- Hebrew: `אמון`
 
 ### Verify before shipping
 

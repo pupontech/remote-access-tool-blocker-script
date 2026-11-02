@@ -37,7 +37,7 @@ function Get-RemoteAccessSafetyCatalog {
             $phraseProperty = $stage.PSObject.Properties['Phrase']
             $phraseValue = if ($null -eq $phraseProperty) { $null } else { $phraseProperty.Value }
             if ($stageIndex -eq 1) {
-                # Only the first dialog asks for a sentence, so it must be present.
+                # Only the first dialog asks for a word, so it must be present.
                 if ($phraseValue -isnot [string] -or [string]::IsNullOrEmpty([string]$phraseValue)) {
                     throw "Invalid $language stage 1 phrase"
                 }
@@ -215,8 +215,8 @@ function New-RemoteAccessSafetyDialog {
     [void]$root.Controls.Add($warningBox, 0, 1)
     [void]$root.Controls.Add($footer, 0, 2)
     [void]$form.Controls.Add($root)
-    # Yes is the default (owner decision, 0.1.7). On stage 1 it stays disabled until the
-    # exact sentence is typed, so Enter cannot approve before that; Escape is still Cancel.
+    # Trust is the default approval button. On stage 1 it stays disabled until the
+    # exact word is typed, so Enter cannot approve before that; Escape is still Cancel.
     $form.AcceptButton = $yesButton
     $form.CancelButton = $cancelButton
 

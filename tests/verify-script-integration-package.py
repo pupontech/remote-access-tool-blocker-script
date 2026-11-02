@@ -96,6 +96,9 @@ def main() -> int:
                     fail(f"stage {index + 1} must not require typing for {language}")
                 if language == "he" and not any(0x0590 <= ord(c) <= 0x05FF for c in warning):
                     fail("Hebrew warnings must contain Hebrew text")
+            expected_phrase, expected_button = {"en": ("trust", "Trust"), "he": ("\u05d0\u05de\u05d5\u05df", "\u05d0\u05de\u05d5\u05df")}[language]
+            if stages[0].get("Phrase") != expected_phrase or entry.get("Yes") != expected_button:
+                fail(f"expected localized trust word and approval button for {language}")
             if stages[0].get("Phrase") in (stages[1].get("Warning"), stages[2].get("Warning")):
                 fail("the typed sentence must not be reused as warning text")
 
