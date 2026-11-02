@@ -323,6 +323,10 @@ try{
      [void][BilingualProbe]::SendMessage($owner,0x0111,[IntPtr](($controlId -band 0xffff) -bor 0x10000),$selector)
      $expectedLanguage=if($selection -eq 1){'he'}else{'en'}
      $window=Wait-Dialog $process 1 ([string]$catalog.$expectedLanguage.Title+' (1/3)')
+     # RTL rendering may recreate handles after the title has already changed.
+     # Reacquire after the posted render has completed; never reuse a stale HWND.
+     Start-Sleep -Milliseconds 400
+     $window=Wait-Dialog $process 1 ([string]$catalog.$expectedLanguage.Title+' (1/3)')
      Save-Image $window ('modal-switch-'+$expectedLanguage+'.png')
     }
    }

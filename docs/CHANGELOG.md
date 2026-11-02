@@ -2,6 +2,14 @@
 
 Notable project changes. Historical dates refer to the versioning dates carried in script filenames.
 
+## 0.1.6-preview.1 — Native Hebrew-switch crash and administrator shortcut
+
+- Reproduce the Windows PowerShell 5.1 hard exit by sending native ComboBox selection notifications while the production confirmation dialog is modal. The previous managed timer test did not cover this notification path.
+- Defer language rendering with BeginInvoke until the native selection notification has returned; lock approval immediately and refuse on a managed rendering failure. Keep the larger centered text and one-sentence-only flow.
+- Mark the Allow Remote Access desktop shortcut Run as administrator. Validate the Shell Link header, preserve unrelated bytes, and read the shortcut back after setting the flag. The controller retains its existing elevation/trust checks.
+- Run START-HERE from the new extracted ZIP to update installed modules and regenerate the desktop shortcuts before retesting.
+- Windows CI exercises native modal language selection and a real WScript.Shell shortcut fixture. It does not prove an interactive UAC prompt, live policy enforcement or reboot transitions on the owner's endpoint.
+
 ## 0.1.4-preview.1 — One typed sentence and crash-safe language switching
 
 - Ask for one sentence on the first safety dialog only. The second and third dialogs are plain Yes/No/Cancel confirmations with no input box and no phrase label, so nothing is typed three times.
