@@ -284,15 +284,23 @@ function New-RemoteAccessSafetyDialog {
         } else {
             $tag.YesButton.Enabled = $true
         }
-        # RightToLeftLayout is deliberately NOT assigned: on a visible form it re-creates the
-        # window handle, which can throw inside the change handler. WinForms already mirrors
-        # children when the form is right-to-left, so the flow direction is left alone here;
-        # flipping it as well would mirror the buttons twice. Only label alignment needs an
-        # explicit value.
-        $form.RightToLeft = $rtlValues[$selectedLanguage]
+        # Keep the form and language selector LTR for their entire lifetime.
+        # Changing the form direction recreates the selector's native handle and
+        # can terminate .NET Framework's modal notification dispatch. Apply Hebrew
+        # direction only to text controls; mirror button flow explicitly.
+        $tag.WarningBox.RightToLeft = $rtlValues[$selectedLanguage]
+        $buttons.RightToLeft = [System.Windows.Forms.RightToLeft]::No
+        $buttons.FlowDirection = if ($selectedLanguage -eq 'he') {
+            [System.Windows.Forms.FlowDirection]::RightToLeft
+        } else {
+            [System.Windows.Forms.FlowDirection]::LeftToRight
+        }
         $alignment = if ($selectedLanguage -eq 'he') { $alignRight } else { $alignLeft }
         $tag.LanguageLabel.TextAlign = $alignment
         if ($tag.RequiresPhrase) {
+            $tag.InputBox.RightToLeft = $rtlValues[$selectedLanguage]
+            $tag.PhraseLabel.RightToLeft = $rtlValues[$selectedLanguage]
+            $tag.Instruction.RightToLeft = $rtlValues[$selectedLanguage]
             $tag.PhraseLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
             $tag.Instruction.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
         }

@@ -177,7 +177,7 @@ $m=Get-Module RemoteAccessSafety
    if($dialog.Tag.Instruction.TextAlign -ne [Drawing.ContentAlignment]::MiddleCenter){ throw 'Typing instruction must be centered' }
    if(-not [object]::ReferenceEquals($dialog.AcceptButton,$dialog.Tag.NoButton)){ throw 'Default is not No' }
    if(-not [object]::ReferenceEquals($dialog.CancelButton,$dialog.Tag.CancelButton)){ throw 'Escape is not Cancel' }
-   $rtl=$dialog.RightToLeft -eq [Windows.Forms.RightToLeft]::Yes
+   $rtl=$dialog.Tag.WarningBox.RightToLeft -eq [Windows.Forms.RightToLeft]::Yes
    if($rtl -ne ($language -eq 'he')){ throw "Stage 1 RTL does not match $language" }
   }finally{ $dialog.Dispose() }
   foreach($stage in 2,3){
@@ -188,7 +188,7 @@ $m=Get-Module RemoteAccessSafety
     if($null -ne $dialog.Tag.PhraseLabel){ throw "Stage $stage must not show a phrase label" }
     if(-not $dialog.Tag.YesButton.Enabled){ throw "Stage $stage must allow Yes without typing" }
     if(-not [object]::ReferenceEquals($dialog.AcceptButton,$dialog.Tag.NoButton)){ throw "Stage $stage default is not No" }
-    $rtl=$dialog.RightToLeft -eq [Windows.Forms.RightToLeft]::Yes
+    $rtl=$dialog.Tag.WarningBox.RightToLeft -eq [Windows.Forms.RightToLeft]::Yes
     if($rtl -ne ($language -eq 'he')){ throw "Stage $stage RTL does not match $language" }
    }finally{ $dialog.Dispose() }
   }
@@ -205,7 +205,7 @@ $m=Get-Module RemoteAccessSafety
   if($tag.InputBox.Text -ne ''){ throw 'Switching language did not clear the typed sentence' }
   if($tag.YesButton.Enabled){ throw 'Yes stayed enabled after switching language' }
   if($tag.RequiredPhrase -cne $tag.Catalog.he.Stages[0].Phrase){ throw 'Required sentence did not switch to Hebrew' }
-  if($dialog.RightToLeft -ne [Windows.Forms.RightToLeft]::Yes){ throw 'Hebrew RTL was not applied by the selector' }
+  if($dialog.Tag.WarningBox.RightToLeft -ne [Windows.Forms.RightToLeft]::Yes){ throw 'Hebrew RTL was not applied by the selector' }
   if($dialog.Text -cne ($tag.Catalog.he.Title+' (1/3)')){ throw 'Dialog title did not switch to Hebrew' }
   if($tag.YesButton.Text -cne $tag.Catalog.he.Yes -or $tag.NoButton.Text -cne $tag.Catalog.he.No -or $tag.CancelButton.Text -cne $tag.Catalog.he.Cancel){ throw 'Buttons were not relabelled' }
   $tag.InputBox.Text=$tag.Catalog.en.Stages[0].Phrase
@@ -214,7 +214,7 @@ $m=Get-Module RemoteAccessSafety
   if(-not $tag.YesButton.Enabled){ throw 'Hebrew sentence did not unlock Yes' }
   $tag.LanguageCombo.SelectedIndex=0
   if($tag.YesButton.Enabled -or $tag.InputBox.Text -ne ''){ throw 'Switching back to English did not reset the dialog' }
-  if($dialog.RightToLeft -ne [Windows.Forms.RightToLeft]::No){ throw 'English did not restore left-to-right' }
+  if($dialog.Tag.WarningBox.RightToLeft -ne [Windows.Forms.RightToLeft]::No){ throw 'English did not restore left-to-right' }
  }finally{ $dialog.Dispose() }
 }
 if($env:RATB_PROBE_SWITCH){
