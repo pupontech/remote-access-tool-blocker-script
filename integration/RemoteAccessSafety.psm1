@@ -147,6 +147,8 @@ function New-RemoteAccessSafetyDialog {
     $warningBox.ReadOnly = $true
     $warningBox.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical
     $warningBox.WordWrap = $true
+    $warningBox.Font = New-Object System.Drawing.Font('Segoe UI', 14)
+    $warningBox.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Center
     $warningBox.Dock = [System.Windows.Forms.DockStyle]::Fill
     $warningBox.ForeColor = [System.Drawing.Color]::DarkRed
     $warningBox.BackColor = [System.Drawing.SystemColors]::Window
@@ -164,12 +166,17 @@ function New-RemoteAccessSafetyDialog {
         $phraseLabel = New-Object System.Windows.Forms.Label
         $phraseLabel.AccessibleName = 'SafetyPhrase'
         $phraseLabel.AutoSize = $true
+        $phraseLabel.Dock = [System.Windows.Forms.DockStyle]::Fill
         $phraseLabel.UseMnemonic = $false
-        $phraseLabel.Font = New-Object System.Drawing.Font($form.Font, [System.Drawing.FontStyle]::Bold)
+        $phraseLabel.Font = New-Object System.Drawing.Font('Segoe UI', 14, [System.Drawing.FontStyle]::Bold)
         $instruction = New-Object System.Windows.Forms.Label
         $instruction.AutoSize = $true
+        $instruction.Dock = [System.Windows.Forms.DockStyle]::Fill
+        $instruction.Font = New-Object System.Drawing.Font('Segoe UI', 12)
         $inputBox = New-Object System.Windows.Forms.TextBox
         $inputBox.AccessibleName = 'SafetyInput'
+        $inputBox.Font = New-Object System.Drawing.Font('Segoe UI', 12)
+        $inputBox.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Center
         $inputBox.Dock = [System.Windows.Forms.DockStyle]::Fill
         $inputBox.Margin = New-Object System.Windows.Forms.Padding(0, 4, 0, 8)
         [void]$footer.Controls.Add($phraseLabel, 0, 0)
@@ -286,8 +293,8 @@ function New-RemoteAccessSafetyDialog {
         $alignment = if ($selectedLanguage -eq 'he') { $alignRight } else { $alignLeft }
         $tag.LanguageLabel.TextAlign = $alignment
         if ($tag.RequiresPhrase) {
-            $tag.PhraseLabel.TextAlign = $alignment
-            $tag.Instruction.TextAlign = $alignment
+            $tag.PhraseLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+            $tag.Instruction.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
         }
     }.GetNewClosure()
 

@@ -172,6 +172,9 @@ $m=Get-Module RemoteAccessSafety
   try{
    if($dialog.Tag.YesButton.Enabled){ throw 'Yes initially enabled on stage 1' }
    if($null -eq $dialog.Tag.InputBox){ throw 'Stage 1 has no input box' }
+   if($dialog.Tag.WarningBox.Font.Size -lt 14 -or $dialog.Tag.WarningBox.TextAlign -ne [Windows.Forms.HorizontalAlignment]::Center){ throw 'Warning text must be large and centered' }
+   if($dialog.Tag.PhraseLabel.Font.Size -lt 14 -or $dialog.Tag.PhraseLabel.TextAlign -ne [Drawing.ContentAlignment]::MiddleCenter){ throw 'Required sentence must be large and centered' }
+   if($dialog.Tag.Instruction.TextAlign -ne [Drawing.ContentAlignment]::MiddleCenter){ throw 'Typing instruction must be centered' }
    if(-not [object]::ReferenceEquals($dialog.AcceptButton,$dialog.Tag.NoButton)){ throw 'Default is not No' }
    if(-not [object]::ReferenceEquals($dialog.CancelButton,$dialog.Tag.CancelButton)){ throw 'Escape is not Cancel' }
    $rtl=$dialog.RightToLeft -eq [Windows.Forms.RightToLeft]::Yes
