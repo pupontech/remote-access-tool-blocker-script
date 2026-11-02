@@ -33,9 +33,9 @@ This is an App Control block, not a software-removal feature. If the host is a S
 Run from an elevated PowerShell session in the extracted package:
 
 ```powershell
-.\Invoke-RemoteAccessProtection.ps1 -Action Install  # default; all listed tools blocked, adds desktop toggle
+.\Invoke-RemoteAccessProtection.ps1 -Action Install  # T1A1S0R1; Splashtop allowed, adds desktop controls
 .\Invoke-RemoteAccessProtection.ps1 -Action Status
-.\Invoke-RemoteAccessProtection.ps1 -Action Enable  # restore all-blocked policy
+.\Invoke-RemoteAccessProtection.ps1 -Action Enable  # restore T1A1S0R1 blocking; Splashtop allowed
 ```
 
 Normal end users double-click `START-HERE.bat` for setup, then use the named desktop controls. `Allow Remote Access.bat` in the ZIP opens the installed controller, not an untrusted extracted copy. Administrator approval is not a substitute for independently verifying the person.
