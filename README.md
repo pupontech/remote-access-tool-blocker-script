@@ -10,13 +10,22 @@ Blocking a support tool can sever remote access. Have a local recovery route and
 
 This is a **Windows PowerShell script package**, not an EXE installer or antivirus. It installs Windows App Control rules to block new starts of covered remote-access software and adds separate **Allow Remote Access** and **Block Remote Access** desktop shortcuts. **There is no ESET integration, website filtering, or software removal in this repository.** The download contains the scripts, compiled policy variants, Windows-only emergency recovery, and `HANDOFF-FOR-IMPLEMENTING-AGENT.md` for embedding it into another script. The optional GUI kit in the source tree is not part of this script-only ZIP.
 
+### What changed in 0.1.7-preview.1
+
+- **Splashtop is allowed.** The script now selects **T1A1S0R1**, blocking covered TeamViewer, AnyDesk and RustDesk starts.
+- **Desktop icons return at startup.** Setup saves the two shortcuts and configures a SYSTEM startup task to copy only those shortcuts back. It does not re-enable or remove the policy.
+- **Centered confirmation buttons, Yes default.** The first Allow dialog still requires the exact sentence; Enter approves dialogs 2 and 3. No, Cancel, Escape and closing the dialog still refuse.
+- **Recovery-folder permissions are checked.** Setup locks the recovery/icon source folder to Administrators and SYSTEM, with Users read/execute, and checks the shared desktop before registering the restore task. This does not resolve the separate Program Files installation-folder review item.
+
+**Upgrading from an earlier preview:** extract into a new folder and rerun **START-HERE.bat on every PC already set up**. Downloading this ZIP alone does not update installed scripts, shortcuts or policies. Restart when instructed. Keep local access throughout; setup can interrupt an existing remote-support connection.
+
 ### Run the downloaded package
 
 1. Extract the entire ZIP; keep its scripts and `policy` folder together.
 2. On a disposable Windows 10/11 test PC, double-click **START-HERE.bat**. It applies blocking directly after any required Windows administrator approval. No typing or extra confirmation is needed.
 3. After setup, **Allow Remote Access** removes this project's blocking only after administrator approval, one typed sentence, and two further native Windows confirmations. The ZIP also includes `Allow Remote Access.bat`, which opens the installed control; run setup first.
 4. Use the desktop **Block Remote Access** shortcut to restore blocking. Close already-running remote tools before testing new launches. Restart when instructed.
-5. Both icons are on the shared desktop, so every account sees them, including new ones. If an icon is deleted or changed, it comes back at the next startup. To stop that, run `C:\RemoteAccessToolBlocker\DesktopIcons\Stop Restoring Icons.bat`; `Start Restoring Icons.bat` turns it back on.
+5. Both icons are on the shared desktop, so every account sees them, including new ones. When the restore task is installed successfully, a deleted or changed icon comes back at the next startup—not immediately. Setup prints a red warning if automatic restoration cannot be configured; blocking setup still continues. To stop restoring icons, run `C:\RemoteAccessToolBlocker\DesktopIcons\Stop Restoring Icons.bat`; `Start Restoring Icons.bat` turns it back on. These helpers require administrator approval and do not change whether tools are blocked.
 
 ### STOP: never give a stranger remote access
 
@@ -37,7 +46,19 @@ The second and third dialogs ask **nothing** to be typed — they are plain **Ye
 
 Choosing No, Cancel, or closing a popup leaves the policy unchanged. These prompts ask **you** to verify the person; the tool cannot verify their identity. Removing this block does not itself start a support session or make a caller trustworthy.
 
-**Needs testing:** both Windows PowerShell 5.1 and PowerShell 7 CI exercise parsing, synthetic logic, recovery-copy fixtures, and ZIP verification—not live policy enforcement, UAC, or reboot transitions. Known review concerns remain around policy-state/variant verification, staged-versus-active state on older Windows, removal error reporting, exact recovery backups, and installation-folder trust. These are not claimed fixed in this preview. Do not deploy to production or rely on it as your only protection; keep local recovery access.
+## Verification and remaining endpoint checks
+
+The release CI runs under **Windows PowerShell 5.1 and PowerShell 7**. It covers parsing/encoding, synthetic policy and consent routing, recovery-copy fixtures, real Windows shortcut bytes, the exact icon-copy command, native English/Hebrew dialogs, packaged launchers with an inert controller, and ZIP/source verification. It **never installs an App Control policy on the runner**.
+
+Before relying on this preview, test these on a spare Windows PC with local recovery access:
+
+- Run setup and confirm Splashtop works while covered TeamViewer, AnyDesk and RustDesk new launches are blocked; restart if requested.
+- Confirm both shared-desktop shortcuts work and appear for a new user.
+- Delete/change an icon, restart and verify restoration; test the Stop/Start helpers. Confirm the recovery folder cannot be changed by a standard user.
+- Exercise English/Hebrew switching and the typed sentence in the installed Allow flow; confirm No/Cancel/Escape leaves blocking unchanged, and Block restores it.
+- Check interactive UAC, actual policy state, removal and reboot transitions. These are not proven by synthetic CI.
+
+Known review concerns remain around policy-state/variant verification, staged-versus-active state on older Windows, removal error reporting, exact recovery backups, and Program Files installation-folder trust. The new recovery-folder permission checks do not close all installation-trust concerns. **This is a testing prerelease, not production-ready or a complete security boundary.** Keep local recovery access and do not rely on it as your only protection.
 
 ## Primary integration: no-GUI desktop toggle
 
